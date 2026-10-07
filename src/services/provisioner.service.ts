@@ -396,7 +396,7 @@ async function copyDir(src: string, dest: string) {
 
 async function copyNodeModules(backendDir: string) {
   const masterNodeModules = path.join(env.MASTER_BACKEND_DIR, "node_modules");
-  const targetDir = path.join(backendDir, "node_modules");
+  const targetNodeModules = path.join(backendDir, "node_modules");
 
   try {
     await fs.access(masterNodeModules);
@@ -405,9 +405,14 @@ async function copyNodeModules(backendDir: string) {
     return;
   }
 
-  console.log(`[Provision] Copying node_modules (cp -a)...`);
-  await execAsync(`cp -a ${masterNodeModules} ${backendDir}/`);
-  console.log(`[Provision] node_modules copied to ${targetDir}`);
+  // امسح أي node_modules قديم (لو موجود)
+  try {
+    await fs.rm(targetNodeModules, { recursive: true, force: true });
+  } catch {}
+
+  // اعمل symlink (فوري بدل نسخ 450MB)
+  await fs.symlink(masterNodeModules, targetNodeModules);
+  console.log(`[Provision] ✅ Symlinked node_modules → ${masterNodeModules}`);
 }
 
 async function chownPleskUser(dir: string) {
