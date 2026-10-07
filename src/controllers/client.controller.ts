@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 import { env } from "../config/env";
 import { rebuildFrontendForClient } from "../services/rebuild.service";
 import type { Response } from "express";
@@ -17,11 +19,62 @@ import {
   sanitizeSubdomainName,
   validateSubdomainName,
 } from "../services/plesk.service";
-import { provisionClient } from "../services/provisioner.service"; // ← المرحلة الجاية
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ============================================================================
+// 🚀 Provisioning launcher (standalone background process)
+// ============================================================================
+
+function launchProvisioning(clientId: string) {
+  const isDev = env.NODE_ENV === "development";
+
+  // في production: dist/services/provisioner.runner.js
+  // في development: src/services/provisioner.runner.ts (نستخدم tsx)
+  const runnerPath = path.join(
+    __dirname,
+    "..",
+    "services",
+    isDev ? "provisioner.runner.ts" : "provisioner.runner.js",
+  );
+
+  let command: string;
+  let args: string[];
+
+  if (isDev) {
+    // في التطوير، نستخدم tsx
+    command = "npx";
+    args = ["tsx", runnerPath, clientId];
+  } else {
+    // في production، نستخدم node مباشرة
+    command = "node";
+    args = [runnerPath, clientId];
+  }
+
+  console.log(`🚀 Launching provisioning in background`);
+  console.log(`   Command: ${command} ${args.join(" ")}`);
+  console.log(`   CWD: ${process.cwd()}`);
+
+  const child = spawn(command, args, {
+    detached: true,
+    stdio: "ignore",
+    cwd: process.cwd(),
+  });
+
+  child.unref();
+
+  console.log(`🚀 Provisioning started. PID: ${child.pid}`);
+  return child.pid;
+}
+
+// ============================================================================
+// Client CRUD
+// ============================================================================
 
 /**
  * POST /api/admin/clients
- * ينشئ Client record ويطلق provisioning في الخلفية.
+ * ينشئ Client record ويطلق provisioning في process منفصل.
  */
 export const createClient = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -67,33 +120,23 @@ export const createClient = asyncHandler(
       ip: req.ip,
     });
 
-    // Provision in background
-    // Provision in background
-    provisionClient(client._id.toString())
-      .then((result) => {
-        // في dev mode، اطبع الـ API key للاختبار
-        if (env.NODE_ENV === "development" && result?.rawApiKey) {
-          console.log(`\n🔑 [DEV] Tenant API Key for ${client.subdomain}:`);
-          console.log(`   ${result.rawApiKey}\n`);
-        }
-      })
-      .catch((err) => {
-        console.error(
-          `❌ Background provisioning failed for ${client._id}:`,
-          err,
-        );
-      });
+    // 🚀 أطلق provisioning في process منفصل
+    try {
+      launchProvisioning(client._id.toString());
+    } catch (err: any) {
+      console.error(
+        `Failed to launch provisioning for ${client._id}: ${err.message}`,
+      );
+      // مش fatal — نقدر نعيد من endpoint لاحقًا
+    }
 
     SuccessResponse(
       res,
       {
-        message: "Client created. Provisioning will start shortly.",
+        message: "Client created. Provisioning started in background.",
         data: {
           client: { id: client._id, status: client.provisioning_status },
-          // 🔑 في dev mode نرجّع الـ API key مباشرة (فقط للاختبار)
-          ...(env.NODE_ENV === "development" && {
-            devHint: "API key سيظهر في terminal بعد ثانية",
-          }),
+          hint: "Use GET /api/admin/clients/:id/provisioning-logs to monitor progress",
         },
       },
       202,
@@ -152,6 +195,58 @@ export const getProvisioningStatus = asyncHandler(
     SuccessResponse(res, {
       message: "Provisioning status",
       data: client,
+    });
+  },
+);
+
+/**
+ * GET /api/admin/clients/:id/provisioning-logs
+ * ✅ جديد — يعرض تفاصيل كل خطوة + الوقت
+ */
+export const getProvisioningLogs = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const client = await ClientModel.findById(req.params.id).select(
+      "provisioning_status provisioning_error provisioning_started_at provisioning_updated_at provisioning_step_details company_name subdomain",
+    );
+    if (!client) throw new NotFound("Client not found");
+
+    const startedAt = (client as any).provisioning_started_at;
+    const updatedAt = (client as any).provisioning_updated_at;
+
+    const elapsedSeconds =
+      startedAt && updatedAt
+        ? Math.round(
+            (new Date(updatedAt).getTime() - new Date(startedAt).getTime()) /
+              1000,
+          )
+        : null;
+
+    // Convert Map to plain object
+    let steps: Record<string, string[]> = {};
+    const stepMap = (client as any).provisioning_step_details;
+    if (stepMap && typeof stepMap.forEach === "function") {
+      stepMap.forEach((value: string[], key: string) => {
+        steps[key] = value;
+      });
+    } else if (stepMap && typeof stepMap === "object") {
+      steps = stepMap;
+    }
+
+    SuccessResponse(res, {
+      message: "Provisioning logs",
+      data: {
+        client: {
+          id: client._id,
+          company_name: client.company_name,
+          subdomain: client.subdomain,
+        },
+        status: client.provisioning_status,
+        error: client.provisioning_error,
+        started_at: startedAt,
+        updated_at: updatedAt,
+        elapsed_seconds: elapsedSeconds,
+        steps,
+      },
     });
   },
 );
@@ -282,7 +377,10 @@ export const suspendClient = asyncHandler(
       ip: req.ip,
     });
 
-    SuccessResponse(res, { message: "Client suspended", data: { client } });
+    SuccessResponse(res, {
+      message: "Client suspended",
+      data: { client },
+    });
   },
 );
 
@@ -305,7 +403,10 @@ export const activateClient = asyncHandler(
       ip: req.ip,
     });
 
-    SuccessResponse(res, { message: "Client activated", data: { client } });
+    SuccessResponse(res, {
+      message: "Client activated",
+      data: { client },
+    });
   },
 );
 
@@ -389,9 +490,7 @@ export const resetTenantAdminPassword = asyncHandler(
 
     const conn = (await import("mongoose")).default.connection.useDb(
       client.db_name,
-      {
-        useCache: true,
-      },
+      { useCache: true },
     );
 
     await conn
