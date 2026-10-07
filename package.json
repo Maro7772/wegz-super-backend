@@ -5,10 +5,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts src/services/provisioner.runner.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
-    "start": "node dist/server.js",
-    "provision": "tsx src/services/provisioner.runner.ts",
-    "provision:prod": "node dist/services/provisioner.runner.js"
+    "build": "tsup src/server.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",

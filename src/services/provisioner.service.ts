@@ -35,7 +35,7 @@ export async function provisionClient(clientId: string) {
   if (!client) throw new Error(`Client ${clientId} not found`);
 
   // ==========================================================================
-  // 🧪 DEV MODE
+  // 🧪 DEV MODE: simulate provisioning when Plesk is not configured
   // ==========================================================================
   const isDev = env.NODE_ENV === "development";
   const pleskReady = !!env.PLESK_API_KEY && env.PLESK_HOST !== "localhost";
@@ -48,7 +48,7 @@ export async function provisionClient(clientId: string) {
   }
 
   // ==========================================================================
-  // 🚀 REAL provisioning
+  // 🚀 REAL provisioning (Plesk)
   // ==========================================================================
   const ctx: ProvisionContext = {
     clientId: client._id.toString(),
@@ -57,80 +57,42 @@ export async function provisionClient(clientId: string) {
     completed: [],
   };
 
-  // سجّل وقت البداية
-  await ClientModel.findByIdAndUpdate(clientId, {
-    provisioning_started_at: new Date(),
-    provisioning_updated_at: new Date(),
-    provisioning_error: null,
-  });
-
   try {
     // 1. Tenant DB
-    await setProvisioningStatus(clientId, "creating_db", `db=${ctx.dbName}`);
+    await setProvisioningStatus(clientId, "creating_db");
     await createTenantDatabase(ctx.dbName, client);
     ctx.completed.push("db");
 
-    // 2. Subdomains
-    await setProvisioningStatus(
-      clientId,
-      "creating_subdomain",
-      "creating frontend subdomain",
-    );
+    // 2. Subdomains (frontend + backend)
+    await setProvisioningStatus(clientId, "creating_subdomain");
     ctx.frontendSubdomain = await createSubdomain(ctx.subdomain);
-
-    await setProvisioningStatus(
-      clientId,
-      "creating_subdomain",
-      "creating backend subdomain",
-    );
     ctx.backendSubdomain = await createSubdomain(`api-${ctx.subdomain}`);
     ctx.completed.push("subdomains");
 
-    // 3. Files
-    await setProvisioningStatus(
-      clientId,
-      "deploying",
-      "starting file deployment",
-    );
+    // 3. Copy files (frontend + backend) + generate env + htaccess
+    await setProvisioningStatus(clientId, "deploying");
     await deployFiles(ctx);
     ctx.completed.push("files");
 
-    // 4. API Key
-    await setProvisioningStatus(
-      clientId,
-      "generating_key",
-      "generating tenant API key",
-    );
+    // 4. API Key (generate + store hash)
+    await setProvisioningStatus(clientId, "generating_key");
     ctx.rawApiKey = await generateTenantApiKey(ctx.clientId);
     ctx.completed.push("apiKey");
 
-    // 5. Backend env
-    await setProvisioningStatus(
-      clientId,
-      "generating_key",
-      "writing backend .env",
-    );
+    // 5. Write final backend .env (with API key injected)
     await writeBackendEnv(ctx);
     ctx.completed.push("backendEnv");
 
-    // 6. Subscription
-    await setProvisioningStatus(
-      clientId,
-      "creating_subscription",
-      "creating subscription",
-    );
+    // 6. Subscription (سنة من الآن — عدّلها حسب حاجتك)
+    await setProvisioningStatus(clientId, "creating_subscription");
     await createInitialSubscription(
       ctx.clientId,
       (client.package_id as any)._id,
     );
     ctx.completed.push("subscription");
 
-    // 7. SSL
-    await setProvisioningStatus(
-      clientId,
-      "installing_ssl",
-      "installing SSL certificates",
-    );
+    // 7. SSL (best-effort)
+    await setProvisioningStatus(clientId, "installing_ssl");
     await installSslSafe(ctx.frontendSubdomain, ctx.backendSubdomain);
     ctx.completed.push("ssl");
 
@@ -142,10 +104,6 @@ export async function provisionClient(clientId: string) {
     client.provisioning_status = "completed";
     client.provisioning_error = undefined;
     await client.save();
-
-    await ClientModel.findByIdAndUpdate(clientId, {
-      provisioning_updated_at: new Date(),
-    });
 
     console.log(`✅ Provisioning completed for ${client.company_name}`);
     return {
@@ -162,10 +120,6 @@ export async function provisionClient(clientId: string) {
     client.provisioning_status = "failed";
     client.provisioning_error = err.message;
     await client.save().catch(() => {});
-
-    await ClientModel.findByIdAndUpdate(clientId, {
-      provisioning_updated_at: new Date(),
-    }).catch(() => {});
 
     await rollback(ctx);
     throw err;
@@ -187,48 +141,57 @@ async function simulateProvisioning(client: any) {
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   try {
-    await ClientModel.findByIdAndUpdate(ctx.clientId, {
-      provisioning_started_at: new Date(),
-      provisioning_updated_at: new Date(),
-    });
-
-    await setProvisioningStatus(ctx.clientId, "creating_db", "[DEV]");
+    // 1. Tenant DB (real — أنشئها فعلاً في MongoDB لأنها مش محتاجة Plesk)
+    await setProvisioningStatus(ctx.clientId, "creating_db");
     await delay(600);
     await createTenantDatabase(ctx.dbName, client);
     ctx.completed.push("db");
+    console.log(`🧪 [DEV] DB created: ${ctx.dbName}`);
 
-    await setProvisioningStatus(ctx.clientId, "creating_subdomain", "[DEV]");
+    // 2. Subdomains (fake)
+    await setProvisioningStatus(ctx.clientId, "creating_subdomain");
     await delay(600);
     ctx.frontendSubdomain = `${ctx.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
     ctx.backendSubdomain = `api-${ctx.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
     ctx.completed.push("subdomains");
+    console.log(
+      `🧪 [DEV] Subdomains simulated: ${ctx.frontendSubdomain}, ${ctx.backendSubdomain}`,
+    );
 
-    await setProvisioningStatus(ctx.clientId, "deploying", "[DEV] simulated");
+    // 3. Files (skip — بس سجّلها)
+    await setProvisioningStatus(ctx.clientId, "deploying");
     await delay(600);
     ctx.completed.push("files");
+    console.log(`🧪 [DEV] Files deployment simulated`);
 
-    await setProvisioningStatus(ctx.clientId, "generating_key", "[DEV]");
+    // 4. API Key (real — لأننا هنستخدمها في tenant/verify)
+    await setProvisioningStatus(ctx.clientId, "generating_key");
     await delay(400);
     ctx.rawApiKey = await generateTenantApiKey(ctx.clientId);
     ctx.completed.push("apiKey");
-    ctx.completed.push("backendEnv");
+    console.log(`🧪 [DEV] API Key generated: ${ctx.rawApiKey.slice(0, 20)}...`);
 
-    await setProvisioningStatus(ctx.clientId, "creating_subscription", "[DEV]");
+    // 5. Backend .env (skip — بس سجّلها)
+    ctx.completed.push("backendEnv");
+    console.log(`🧪 [DEV] Backend .env write simulated`);
+
+    // 6. Subscription (real)
+    await setProvisioningStatus(ctx.clientId, "creating_subscription");
     await delay(400);
     await createInitialSubscription(
       ctx.clientId,
       (client.package_id as any)._id,
     );
     ctx.completed.push("subscription");
+    console.log(`🧪 [DEV] Subscription created`);
 
-    await setProvisioningStatus(
-      ctx.clientId,
-      "installing_ssl",
-      "[DEV] simulated",
-    );
+    // 7. SSL (skip)
+    await setProvisioningStatus(ctx.clientId, "installing_ssl");
     await delay(300);
     ctx.completed.push("ssl");
+    console.log(`🧪 [DEV] SSL install simulated`);
 
+    // 8. Finalize
     client.subdomain_url = `https://${ctx.frontendSubdomain}`;
     client.backend_url = `https://${ctx.backendSubdomain}`;
     client.db_name = ctx.dbName;
@@ -236,10 +199,6 @@ async function simulateProvisioning(client: any) {
     client.provisioning_status = "completed";
     client.provisioning_error = undefined;
     await client.save();
-
-    await ClientModel.findByIdAndUpdate(ctx.clientId, {
-      provisioning_updated_at: new Date(),
-    });
 
     console.log(
       `🧪 [DEV] ✅ Provisioning simulated for ${client.company_name}`,
@@ -263,23 +222,10 @@ async function simulateProvisioning(client: any) {
 // Steps
 // ============================================================================
 
-async function setProvisioningStatus(
-  clientId: string,
-  status: string,
-  detail?: string,
-) {
-  const now = new Date();
-  const timestamp = now.toISOString();
-  const message = detail ? `${timestamp} | ${detail}` : timestamp;
-
-  console.log(`[Provision] → ${status}${detail ? ` | ${detail}` : ""}`);
-
+async function setProvisioningStatus(clientId: string, status: string) {
+  console.log(`[Provision] → ${status}`);
   await ClientModel.findByIdAndUpdate(clientId, {
     provisioning_status: status,
-    provisioning_updated_at: now,
-    $push: {
-      [`provisioning_step_details.${status}`]: message,
-    },
   });
 }
 
@@ -288,6 +234,7 @@ async function createTenantDatabase(dbName: string, client: any) {
 
   const conn = mongoose.connection.useDb(dbName, { useCache: true });
 
+  // Metadata
   await conn.createCollection("metadata").catch(() => {});
   await conn.collection("metadata").insertOne({
     client_id: client._id,
@@ -295,11 +242,12 @@ async function createTenantDatabase(dbName: string, client: any) {
     created_at: new Date(),
   });
 
+  // Seed admin user
   await conn.createCollection("users").catch(() => {});
   await conn.collection("users").insertOne({
     username: "admin",
     email: client.email,
-    password_hash: client.password,
+    password_hash: client.password, // already hashed by Client pre-save
     company_name: client.company_name,
     phone: "0000000000",
     role: "superadmin",
@@ -317,44 +265,21 @@ async function deployFiles(ctx: ProvisionContext) {
   const backendDir = path.join(env.PLESK_VHOSTS_DIR, `api-${ctx.subdomain}`);
 
   // -------- Frontend --------
-  await setProvisioningStatus(
-    ctx.clientId,
-    "deploying",
-    "copying frontend files",
-  );
   console.log(`[Provision] Copying frontend → ${frontendDir}`);
   await copyDir(env.MASTER_FRONTEND_DIR, frontendDir);
   await writeFrontendHtaccess(frontendDir);
+
+  // Inject API URL into compiled bundles
   await injectApiUrlIntoBundle(frontendDir, `https://${ctx.backendSubdomain}`);
 
   // -------- Backend --------
-  await setProvisioningStatus(
-    ctx.clientId,
-    "deploying",
-    "copying backend files",
-  );
   console.log(`[Provision] Copying backend → ${backendDir}`);
   await copyDir(env.MASTER_BACKEND_DIR, backendDir);
   await writeAppJsShim(backendDir);
-
-  // -------- node_modules (الخطوة الأطول) --------
-  await setProvisioningStatus(
-    ctx.clientId,
-    "deploying",
-    "copying node_modules (may take minutes)",
-  );
   await copyNodeModules(backendDir);
-
-  // -------- chown --------
-  await setProvisioningStatus(ctx.clientId, "deploying", "fixing ownership");
   await chownPleskUser(backendDir);
 
-  // -------- Enable Node.js --------
-  await setProvisioningStatus(
-    ctx.clientId,
-    "deploying",
-    "enabling Node.js on Plesk",
-  );
+  // Enable Node.js for backend subdomain
   const apiSub = `api-${ctx.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
   console.log(`[Provision] Enabling Node.js for ${apiSub}`);
   await executePleskCli("extension", [
@@ -365,6 +290,7 @@ async function deployFiles(ctx: ProvisionContext) {
     apiSub,
   ]);
 
+  // Disable nginx proxy (recommended for Node apps in Plesk)
   await executePleskCli("domain", [
     "--update-web-server-settings",
     apiSub,
@@ -404,7 +330,7 @@ async function writeBackendEnv(ctx: ProvisionContext) {
 async function createInitialSubscription(clientId: string, packageId: string) {
   const start = new Date();
   const end = new Date();
-  end.setFullYear(end.getFullYear() + 1);
+  end.setFullYear(end.getFullYear() + 1); // سنة
 
   await SubscriptionModel.create({
     client_id: clientId,
@@ -479,23 +405,9 @@ async function copyNodeModules(backendDir: string) {
     return;
   }
 
-  // اعرض الحجم قبل النسخ
-  try {
-    const { stdout } = await execAsync(`du -sh "${masterNodeModules}"`);
-    console.log(`[Provision] master node_modules size: ${stdout.trim()}`);
-  } catch {
-    // تجاهل لو du مش متاح
-  }
-
   console.log(`[Provision] Copying node_modules (cp -a)...`);
-  const startTime = Date.now();
-
-  await execAsync(`cp -a "${masterNodeModules}" "${backendDir}/"`);
-
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(
-    `[Provision] ✅ node_modules copied in ${elapsed}s → ${targetDir}`,
-  );
+  await execAsync(`cp -a ${masterNodeModules} ${backendDir}/`);
+  console.log(`[Provision] node_modules copied to ${targetDir}`);
 }
 
 async function chownPleskUser(dir: string) {
@@ -505,7 +417,7 @@ async function chownPleskUser(dir: string) {
     return;
   }
   console.log(`[Provision] chown -R ${user}:psacln ${dir}`);
-  await execAsync(`chown -R ${user}:psacln "${dir}"`);
+  await execAsync(`chown -R ${user}:psacln ${dir}`);
 }
 
 async function writeAppJsShim(backendDir: string) {
@@ -545,21 +457,25 @@ async function writeFrontendHtaccess(dir: string) {
     RewriteEngine On
     RewriteBase /
 
+    # Point of Sale SPA
     RewriteCond %{REQUEST_URI} ^/point-of-sale/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^point-of-sale/(.*)$ /point-of-sale/index.html [L]
 
+    # Admin Login SPA
     RewriteCond %{REQUEST_URI} ^/admin-login/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^admin-login/(.*)$ /admin-login/index.html [L]
 
+    # Ecommerce SPA
     RewriteCond %{REQUEST_URI} ^/ecommerce/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ecommerce/(.*)$ /ecommerce/index.html [L]
 
+    # Root fallback
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ /index.html [L]
@@ -606,8 +522,7 @@ async function generateBackendEnv(
 }
 
 async function injectApiUrlIntoBundle(dir: string, newApiUrl: string) {
-  // ✅ صلّحنا typo: wego.org ← wegz.org
-  const oldUrl = "https://back.wegz.org";
+  const oldUrl = "https://back.wego.org";
 
   async function walk(current: string) {
     const entries = await fs.readdir(current, { withFileTypes: true });
@@ -657,7 +572,9 @@ async function rollback(ctx: ProvisionContext) {
           await fs
             .rm(
               path.join(env.PLESK_VHOSTS_DIR, `api-${ctx.subdomain}`, ".env"),
-              { force: true },
+              {
+                force: true,
+              },
             )
             .catch(() => {});
           break;

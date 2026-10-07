@@ -27,12 +27,6 @@ export interface IClient extends Document {
   logoBase64?: string;
   provisioning_status: ProvisioningStatus;
   provisioning_error?: string;
-
-  // ✅ الحقول الجديدة لمراقبة الـ provisioning
-  provisioning_started_at?: Date;
-  provisioning_updated_at?: Date;
-  provisioning_step_details?: Map<string, string[]>;
-
   createdAt: Date;
   updatedAt: Date;
   comparePassword(plain: string): Promise<boolean>;
@@ -82,15 +76,6 @@ const schema = new Schema<IClient>(
       default: "pending",
     },
     provisioning_error: String,
-
-    // ✅ حقول المراقبة
-    provisioning_started_at: Date,
-    provisioning_updated_at: Date,
-    provisioning_step_details: {
-      type: Map,
-      of: [String],
-      default: {},
-    },
   },
   { timestamps: true },
 );

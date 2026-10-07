@@ -14,7 +14,6 @@ import {
   resetTenantAdminPassword,
   installClientSsl,
   deleteClientFull,
-  getProvisioningLogs,
 } from "../controllers/client.controller";
 import { clientSubRoutes } from "./subscription.routes";
 import { authenticate } from "../middlewares/auth.middleware";
@@ -36,11 +35,6 @@ router.get(
   "/:id/provisioning-status",
   requirePermission("clients:read"),
   getProvisioningStatus,
-);
-router.get(
-  "/:id/provisioning-logs",
-  requirePermission("clients:read"),
-  getProvisioningLogs,
 );
 
 // ---- API Key ----
