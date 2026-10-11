@@ -2,11 +2,9 @@ import mongoose, { Schema } from "mongoose";
 import type { Document, Types } from "mongoose";
 
 export interface IPackageFeatures {
-  haveEcommerce: boolean;
+  haveLanding: boolean;
   haveMobileApp: boolean;
-  havePOS: boolean;
   haveReports: boolean;
-  haveStockTake: boolean;
 }
 
 export interface IPackage extends Document {
@@ -25,11 +23,9 @@ export interface IPackage extends Document {
 
 const featuresSchema = new Schema<IPackageFeatures>(
   {
-    haveEcommerce: { type: Boolean, default: false },
+    haveLanding: { type: Boolean, default: false },
     haveMobileApp: { type: Boolean, default: false },
-    havePOS: { type: Boolean, default: false },
     haveReports: { type: Boolean, default: false },
-    haveStockTake: { type: Boolean, default: false },
   },
   { _id: false },
 );

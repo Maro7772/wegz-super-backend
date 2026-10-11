@@ -515,3 +515,50 @@ export const deleteClientFull = asyncHandler(
     SuccessResponse(res, { message: "Client fully deleted" });
   },
 );
+
+/**
+ * POST /api/admin/clients/:id/retry-provisioning
+ * إعادة تشغيل الـ provisioning لعميل معلق أو فاشل.
+ */
+export const retryProvisioning = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const client = await ClientModel.findById(req.params.id);
+    if (!client) throw new NotFound("Client not found");
+
+    if (client.provisioning_status === "completed") {
+      throw new BadRequest("Client provisioning is already completed");
+    }
+
+    // إعادة تعيين الحالة إلى pending ومسح رسالة الخطأ
+    await ClientModel.findByIdAndUpdate(client._id, {
+      provisioning_status: "pending",
+      provisioning_error: null,
+    });
+
+    // تشغيل الـ provisioning في الخلفية
+    provisionClient(client._id.toString()).catch((err) => {
+      console.error(
+        `❌ Background retry provisioning failed for ${client._id}:`,
+        err,
+      );
+    });
+
+    await logAudit({
+      adminId: req.admin!.id,
+      action: "client.retry_provisioning",
+      targetType: "Client",
+      targetId: client._id,
+      metadata: { email: client.email, subdomain: client.subdomain },
+      ip: req.ip,
+    });
+
+    SuccessResponse(
+      res,
+      {
+        message: "Provisioning retry started",
+        data: { id: client._id, provisioning_status: "pending" },
+      },
+      202,
+    );
+  },
+);

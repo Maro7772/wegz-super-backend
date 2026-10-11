@@ -35,7 +35,8 @@ export const env = {
   MONGO_TENANT_USER: optional("MONGO_TENANT_USER", "admin"),
   MONGO_TENANT_PASS: optional("MONGO_TENANT_PASS", ""),
 
-  SUPER_SYSTEGO_URL: optional("SUPER_SYSTEGO_URL"),
+  SUPER_SYSTEGO_URL:
+    optional("SUPER_SYSTEGO_URL") || optional("SUPER_WEGZ_URL"),
   SUPER_FRONTEND_URL: optional("SUPER_FRONTEND_URL", ""), // ← جديد
   VERSION_UPDATER_URL: optional("VERSION_UPDATER_URL"),
   VERSION_UPDATER_API_KEY: optional("VERSION_UPDATER_API_KEY"),

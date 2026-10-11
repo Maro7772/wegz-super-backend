@@ -31,7 +31,9 @@ interface ProvisionContext {
 // ============================================================================
 
 export async function provisionClient(clientId: string) {
-  const client = await ClientModel.findById(clientId).populate("package_id");
+  const client = await ClientModel.findById(clientId)
+    .select("+password")
+    .populate("package_id");
   if (!client) throw new Error(`Client ${clientId} not found`);
 
   // ==========================================================================
@@ -87,7 +89,7 @@ export async function provisionClient(clientId: string) {
     await setProvisioningStatus(clientId, "creating_subscription");
     await createInitialSubscription(
       ctx.clientId,
-      (client.package_id as any)._id,
+      (client.package_id as any)?._id,
     );
     ctx.completed.push("subscription");
 
@@ -96,14 +98,15 @@ export async function provisionClient(clientId: string) {
     await installSslSafe(ctx.frontendSubdomain, ctx.backendSubdomain);
     ctx.completed.push("ssl");
 
-    // 8. Finalize
-    client.subdomain_url = `https://${ctx.frontendSubdomain}`;
-    client.backend_url = `https://${ctx.backendSubdomain}`;
-    client.db_name = ctx.dbName;
-    client.status = "active";
-    client.provisioning_status = "completed";
-    client.provisioning_error = undefined;
-    await client.save();
+    // 8. Finalize (استخدم findByIdAndUpdate لتفادي أخطاء الـ validation على حقل الباسورد)
+    await ClientModel.findByIdAndUpdate(clientId, {
+      subdomain_url: `https://${ctx.frontendSubdomain}`,
+      backend_url: `https://${ctx.backendSubdomain}`,
+      db_name: ctx.dbName,
+      status: "active",
+      provisioning_status: "completed",
+      provisioning_error: null,
+    });
 
     console.log(`✅ Provisioning completed for ${client.company_name}`);
     return {
@@ -114,12 +117,16 @@ export async function provisionClient(clientId: string) {
   } catch (err: any) {
     console.error(
       `❌ Provisioning failed for ${client.company_name}:`,
-      err.message,
+      err.message || err,
     );
 
-    client.provisioning_status = "failed";
-    client.provisioning_error = err.message;
-    await client.save().catch(() => {});
+    // احفظ حالة الفشل والرسالة في الداتابيز حتى لا يظل معلقاً في pending
+    await ClientModel.findByIdAndUpdate(clientId, {
+      provisioning_status: "failed",
+      provisioning_error: err.message || String(err),
+    }).catch((saveErr) => {
+      console.error("Failed to update status to failed in DB:", saveErr);
+    });
 
     await rollback(ctx);
     throw err;
@@ -192,13 +199,14 @@ async function simulateProvisioning(client: any) {
     console.log(`🧪 [DEV] SSL install simulated`);
 
     // 8. Finalize
-    client.subdomain_url = `https://${ctx.frontendSubdomain}`;
-    client.backend_url = `https://${ctx.backendSubdomain}`;
-    client.db_name = ctx.dbName;
-    client.status = "active";
-    client.provisioning_status = "completed";
-    client.provisioning_error = undefined;
-    await client.save();
+    await ClientModel.findByIdAndUpdate(ctx.clientId, {
+      subdomain_url: `https://${ctx.frontendSubdomain}`,
+      backend_url: `https://${ctx.backendSubdomain}`,
+      db_name: ctx.dbName,
+      status: "active",
+      provisioning_status: "completed",
+      provisioning_error: null,
+    });
 
     console.log(
       `🧪 [DEV] ✅ Provisioning simulated for ${client.company_name}`,
@@ -210,9 +218,10 @@ async function simulateProvisioning(client: any) {
     };
   } catch (err: any) {
     console.error(`🧪 [DEV] ❌ Simulation failed:`, err.message);
-    client.provisioning_status = "failed";
-    client.provisioning_error = err.message;
-    await client.save().catch(() => {});
+    await ClientModel.findByIdAndUpdate(ctx.clientId, {
+      provisioning_status: "failed",
+      provisioning_error: err.message || String(err),
+    }).catch(() => {});
     await rollback(ctx);
     throw err;
   }
@@ -261,6 +270,12 @@ async function createTenantDatabase(dbName: string, client: any) {
 }
 
 async function deployFiles(ctx: ProvisionContext) {
+  if (!env.MASTER_FRONTEND_DIR || !env.MASTER_BACKEND_DIR || !env.PLESK_VHOSTS_DIR) {
+    throw new Error(
+      "Missing configuration: MASTER_FRONTEND_DIR, MASTER_BACKEND_DIR, and PLESK_VHOSTS_DIR must be set in .env",
+    );
+  }
+
   const frontendDir = path.join(env.PLESK_VHOSTS_DIR, ctx.subdomain);
   const backendDir = path.join(env.PLESK_VHOSTS_DIR, `api-${ctx.subdomain}`);
 
@@ -282,23 +297,31 @@ async function deployFiles(ctx: ProvisionContext) {
   // Enable Node.js for backend subdomain
   const apiSub = `api-${ctx.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
   console.log(`[Provision] Enabling Node.js for ${apiSub}`);
-  await executePleskCli("extension", [
-    "--call",
-    "nodejs",
-    "--enable",
-    "-domain",
-    apiSub,
-  ]);
+  try {
+    await executePleskCli("extension", [
+      "--call",
+      "nodejs",
+      "--enable",
+      "-domain",
+      apiSub,
+    ]);
+  } catch (err: any) {
+    console.warn(
+      `[Provision] Note: Node.js CLI enable returned: ${err.message} (safe if configured via Plesk panel)`,
+    );
+  }
 
   // Disable nginx proxy (recommended for Node apps in Plesk)
-  await executePleskCli("domain", [
-    "--update-web-server-settings",
-    apiSub,
-    "-nginx-proxy-mode",
-    "false",
-  ]).catch((err) =>
-    console.warn(`[Provision] nginx-proxy-mode toggle failed: ${err.message}`),
-  );
+  try {
+    await executePleskCli("domain", [
+      "--update-web-server-settings",
+      apiSub,
+      "-nginx-proxy-mode",
+      "false",
+    ]);
+  } catch (err: any) {
+    console.warn(`[Provision] nginx-proxy-mode toggle failed: ${err.message}`);
+  }
 }
 
 async function generateTenantApiKey(clientId: string): Promise<string> {
@@ -379,8 +402,13 @@ async function copyDir(src: string, dest: string) {
   try {
     await fs.access(src);
   } catch {
-    throw new Error(`Master directory not found: ${src}`);
+    throw new Error(
+      `Master directory not found: "${src}". Please verify MASTER_FRONTEND_DIR / MASTER_BACKEND_DIR in .env exist on this server.`,
+    );
   }
+
+  // Ensure destination directory exists
+  await fs.mkdir(dest, { recursive: true });
 
   await fs.cp(src, dest, {
     recursive: true,
@@ -401,7 +429,9 @@ async function copyNodeModules(backendDir: string) {
   try {
     await fs.access(masterNodeModules);
   } catch {
-    console.warn("[Provision] Master node_modules not found — skipping");
+    console.warn(
+      `[Provision] Master node_modules not found at "${masterNodeModules}" — skipping`,
+    );
     return;
   }
 
@@ -410,9 +440,23 @@ async function copyNodeModules(backendDir: string) {
     await fs.rm(targetNodeModules, { recursive: true, force: true });
   } catch {}
 
-  // اعمل symlink (فوري بدل نسخ 450MB)
-  await fs.symlink(masterNodeModules, targetNodeModules);
-  console.log(`[Provision] ✅ Symlinked node_modules → ${masterNodeModules}`);
+  // حاول عمل symlink (فوري بدل نسخ مئات الميجابايتس)، مع fallback للنسخ
+  try {
+    await fs.symlink(masterNodeModules, targetNodeModules);
+    console.log(`[Provision] ✅ Symlinked node_modules → ${masterNodeModules}`);
+  } catch (err: any) {
+    console.warn(
+      `[Provision] Symlink failed (${err.message}), falling back to direct copy...`,
+    );
+    try {
+      await fs.cp(masterNodeModules, targetNodeModules, { recursive: true });
+      console.log(`[Provision] ✅ Copied node_modules successfully`);
+    } catch (copyErr: any) {
+      console.warn(
+        `[Provision] Direct node_modules copy also failed: ${copyErr.message}`,
+      );
+    }
+  }
 }
 
 async function chownPleskUser(dir: string) {
@@ -421,8 +465,16 @@ async function chownPleskUser(dir: string) {
     console.warn("[Provision] PLESK_SYSTEM_USER not set — skipping chown");
     return;
   }
-  console.log(`[Provision] chown -R ${user}:psacln ${dir}`);
-  await execAsync(`chown -R ${user}:psacln ${dir}`);
+  try {
+    console.log(`[Provision] chown -R ${user}:psacln ${dir}`);
+    await execAsync(`chown -R ${user}:psacln ${dir}`);
+  } catch (err: any) {
+    // المستخدم العادي في لينكس غير مسموح له بـ chown (EPERM).
+    // طالما التطبيق يعمل بنفس حساب المستخدم، الملفات مملوكة له بالفعل.
+    console.warn(
+      `[Provision] chown notice: ${err.message} (safe to ignore if running as subscription user)`,
+    );
+  }
 }
 
 async function writeAppJsShim(backendDir: string) {
@@ -433,7 +485,7 @@ async function writeAppJsShim(backendDir: string) {
     "const logFile = path.join(__dirname, 'startup-error.log');",
     "",
     "process.on('uncaughtException', (err) => {",
-    "    const msg = new Date().toISOString() + ' [UNCAUGHT] ' + err.stack + '\\n';",
+    "    const msg = new Date().toISOString() + ' [UNCAUGHT] ' + ((err && err.stack) || err) + '\\n';",
     "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
     "    console.error(msg);",
     "});",
@@ -443,14 +495,22 @@ async function writeAppJsShim(backendDir: string) {
     "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
     "});",
     "",
-    "try {",
-    "    require('./dist/src/server.js');",
-    "} catch (err) {",
-    "    const msg = new Date().toISOString() + ' [STARTUP] ' + err.stack + '\\n';",
+    "(async () => {",
+    "    const candidates = ['./dist/server.js', './dist/src/server.js', './dist/index.js'];",
+    "    for (const rel of candidates) {",
+    "        const full = path.join(__dirname, rel);",
+    "        if (fs.existsSync(full)) {",
+    "            await import(full);",
+    "            return;",
+    "        }",
+    "    }",
+    "    throw new Error('Server entry file not found in ./dist/ (looked for dist/server.js, dist/src/server.js, dist/index.js)');",
+    "})().catch((err) => {",
+    "    const msg = new Date().toISOString() + ' [STARTUP] ' + ((err && err.stack) || err) + '\\n';",
     "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
     "    console.error(msg);",
     "    process.exit(1);",
-    "}",
+    "});",
     "",
   ];
   await fs.writeFile(appJsPath, lines.join("\n"), "utf-8");

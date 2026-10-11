@@ -14,6 +14,7 @@ import {
   resetTenantAdminPassword,
   installClientSsl,
   deleteClientFull,
+  retryProvisioning,
 } from "../controllers/client.controller";
 import { clientSubRoutes } from "./subscription.routes";
 import { authenticate } from "../middlewares/auth.middleware";
@@ -35,6 +36,11 @@ router.get(
   "/:id/provisioning-status",
   requirePermission("clients:read"),
   getProvisioningStatus,
+);
+router.post(
+  "/:id/retry-provisioning",
+  requirePermission("clients:update"),
+  retryProvisioning,
 );
 
 // ---- API Key ----
