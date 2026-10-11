@@ -13,6 +13,7 @@ import {
   deleteSubdomain,
   executePleskCli,
 } from "./plesk.service";
+import { getTenantDatabase, getTenantMongoUri } from "../config/tenantDb";
 
 const execAsync = promisify(exec);
 
@@ -239,9 +240,9 @@ async function setProvisioningStatus(clientId: string, status: string) {
 }
 
 async function createTenantDatabase(dbName: string, client: any) {
-  console.log(`[Provision] Creating tenant DB: ${dbName}`);
+  console.log(`[Provision] Creating tenant DB on Tenant Cluster: ${dbName}`);
 
-  const conn = mongoose.connection.useDb(dbName, { useCache: true });
+  const conn = await getTenantDatabase(dbName);
 
   // Metadata
   await conn.createCollection("metadata").catch(() => {});
@@ -560,9 +561,7 @@ async function generateBackendEnv(
 ) {
   const envPath = path.join(backendDir, ".env");
   const jwtSecret = crypto.randomBytes(32).toString("hex");
-
-  const dbUser = env.MONGO_TENANT_USER;
-  const dbPass = encodeURIComponent(env.MONGO_TENANT_PASS);
+  const tenantMongoUri = getTenantMongoUri(opts.dbName);
 
   const lines = [
     `# Auto-generated for ${opts.clientName}`,
@@ -578,7 +577,8 @@ async function generateBackendEnv(
     `VERSION_UPDATER_URL=${env.VERSION_UPDATER_URL}`,
     `VERSION_UPDATER_API_KEY=${env.VERSION_UPDATER_API_KEY}`,
     ``,
-    `MongoDB_URI=mongodb://${dbUser}:${dbPass}@127.0.0.1:27017/${opts.dbName}?authSource=admin`,
+    `MongoDB_URI=${tenantMongoUri}`,
+    `MONGO_URI=${tenantMongoUri}`,
     ``,
   ];
 
@@ -587,7 +587,8 @@ async function generateBackendEnv(
 }
 
 async function injectApiUrlIntoBundle(dir: string, newApiUrl: string) {
-  const oldUrl = "https://back.wego.org";
+  // الرابط الأصلي الذي تم بناء الماستر فرونت عليه ليتم استبداله برابط باك إند العميل الجديد
+  const oldUrl = process.env.MASTER_API_URL || "https://bcknd.wegz.org";
 
   async function walk(current: string) {
     const entries = await fs.readdir(current, { withFileTypes: true });
@@ -684,8 +685,8 @@ async function rollback(ctx: ProvisionContext) {
           break;
 
         case "db":
-          await mongoose.connection
-            .useDb(ctx.dbName, { useCache: false })
+          const conn = await getTenantDatabase(ctx.dbName);
+          await conn
             .dropDatabase()
             .catch((err) =>
               console.warn(`[Rollback] dropDatabase failed: ${err.message}`),

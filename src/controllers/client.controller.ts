@@ -387,12 +387,8 @@ export const resetTenantAdminPassword = asyncHandler(
     const bcrypt = await import("bcrypt");
     const hash = await bcrypt.hash(new_password, 10);
 
-    const conn = (await import("mongoose")).default.connection.useDb(
-      client.db_name,
-      {
-        useCache: true,
-      },
-    );
+    const { getTenantDatabase } = await import("../config/tenantDb");
+    const conn = await getTenantDatabase(client.db_name);
 
     await conn
       .collection("users")
@@ -490,8 +486,9 @@ export const deleteClientFull = asyncHandler(
 
     // 2. Drop DB
     if (client.db_name) {
-      await mongoose.connection
-        .useDb(client.db_name, { useCache: false })
+      const { getTenantDatabase } = await import("../config/tenantDb");
+      const conn = await getTenantDatabase(client.db_name);
+      await conn
         .dropDatabase()
         .catch((err) => console.warn(`Drop DB failed: ${err.message}`));
     }

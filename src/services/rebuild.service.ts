@@ -16,7 +16,7 @@ export async function rebuildFrontendForClient(
 }
 
 async function injectApiUrlIntoBundle(dir: string, newApiUrl: string) {
-  const oldUrl = "https://back.wego.org";
+  const oldUrl = process.env.MASTER_API_URL || "https://bcknd.wegz.org";
 
   async function walk(current: string) {
     const entries = await fs.readdir(current, { withFileTypes: true });
