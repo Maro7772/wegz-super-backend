@@ -12,15 +12,27 @@ export const PERMISSIONS = [
   "clients:update",
   "clients:delete",
 
-  // ---- Packages ----
-  "packages:read",
-  "packages:create",
-  "packages:update",
-  "packages:delete",
+  // ---- Categories / Subcategories ----
+  "categories:read",
+  "categories:create",
+  "categories:update",
+  "categories:delete",
 
-  // ---- Subscriptions ----
-  "subscriptions:read",
-  "subscriptions:update",
+  // ---- Sales ----
+  "sales:read",
+  "sales:create",
+  "sales:update",
+  "sales:delete",
+
+  // ---- Payments ----
+  "payments:read",
+  "payments:create",
+  "payments:approve",
+  "payments:delete",
+
+  // ---- Reports ----
+  "reports:read",
+  "financial_reports:read",
 
   // ---- Admins Management ----
   "admins:read",

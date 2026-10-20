@@ -4,7 +4,6 @@ import {
   SuperAdminPermissionModel,
   PERMISSIONS,
 } from "../models/SuperAdminPermission";
-import { PackageModel } from "../models/Package";
 
 export async function seedRootAdmin(): Promise<void> {
   const existing = await SuperAdminModel.findOne({
@@ -42,31 +41,4 @@ export async function seedRootAdmin(): Promise<void> {
       { upsert: true, returnDocument: "after" },
     );
   }
-}
-
-/**
- * يزرع باقة افتراضية لو مفيش أي باقة.
- */
-export async function seedDefaultPackage(): Promise<void> {
-  const count = await PackageModel.countDocuments();
-  if (count > 0) return;
-
-  await PackageModel.create({
-    name: "Basic Plan",
-    description: "Default starter plan",
-    monthly_price: 10,
-    quarterly_price: 25,
-    half_yearly_price: 45,
-    yearly_price: 80,
-    status: true,
-    features: {
-      haveEcommerce: false,
-      haveMobileApp: false,
-      havePOS: false,
-      haveReports: true,
-      haveStockTake: false,
-    },
-  });
-
-  console.log("🌱 Seeded default package: Basic Plan");
 }

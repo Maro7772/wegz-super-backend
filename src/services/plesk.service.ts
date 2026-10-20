@@ -118,8 +118,17 @@ export async function createSubdomain(name: string): Promise<string> {
   </subdomain>
 </packet>`;
 
-  const response = await sendPleskXml(xml);
-  parsePleskXmlResponse(response, "subdomain creation");
+  try {
+    const response = await sendPleskXml(xml);
+    parsePleskXmlResponse(response, "subdomain creation");
+  } catch (err: any) {
+    // Retry-safe: لو الـ subdomain موجود بالفعل، نكمّل بدل ما نفشل
+    if (/already\s+exists?/i.test(err.message)) {
+      console.warn(`[Plesk] Subdomain ${full} already exists — reusing it`);
+    } else {
+      throw err;
+    }
+  }
 
   return full;
 }

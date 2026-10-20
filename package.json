@@ -5,8 +5,9 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
-    "start": "node dist/server.js"
+    "build": "tsup src/server.ts src/scripts/provision.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
+    "start": "node dist/server.js",
+    "migrate:plesk": "node scripts/migrate-to-plesk.cjs"
   },
   "keywords": [],
   "author": "",

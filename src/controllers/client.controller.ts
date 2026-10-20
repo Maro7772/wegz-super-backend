@@ -7,8 +7,7 @@ import asyncHandler from "express-async-handler";
 import crypto from "node:crypto";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { ClientModel } from "../models/Client";
-import { PackageModel } from "../models/Package";
-import { SubscriptionModel } from "../models/Subscription";
+import { CategoryModel } from "../models/Category";
 import { TenantApiKeyModel } from "../models/TenantApiKey";
 import { BadRequest, NotFound, Conflict } from "../utils/errors";
 import { SuccessResponse } from "../utils/response";
@@ -20,22 +19,68 @@ import {
 import { provisionClient } from "../services/provisioner.service"; // ← المرحلة الجاية
 
 /**
+ * يتحقق من (category_id / subcategory_id) ويضمن إن الـ sub تابع للـ category.
+ */
+async function resolveClassification(
+  category_id?: string | null,
+  subcategory_id?: string | null,
+) {
+  let category: any = null;
+  let subcategory: any = null;
+
+  if (category_id) {
+    category = await CategoryModel.findById(category_id);
+    if (!category) throw new NotFound("Category not found");
+    if (category.parent_id) {
+      throw new BadRequest("category_id must be a root category");
+    }
+  }
+
+  if (subcategory_id) {
+    subcategory = await CategoryModel.findById(subcategory_id);
+    if (!subcategory) throw new NotFound("Subcategory not found");
+    if (!subcategory.parent_id) {
+      throw new BadRequest("subcategory_id must be a subcategory");
+    }
+    if (category && String(subcategory.parent_id) !== String(category._id)) {
+      throw new BadRequest("Subcategory does not belong to the selected category");
+    }
+    if (!category) category = await CategoryModel.findById(subcategory.parent_id);
+  }
+
+  return {
+    category_id: category?._id ?? null,
+    subcategory_id: subcategory?._id ?? null,
+  };
+}
+
+/**
  * POST /api/admin/clients
  * ينشئ Client record ويطلق provisioning في الخلفية.
  */
 export const createClient = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { company_name, email, password, package_id, subdomain, logoBase64 } =
-      req.body;
+    const {
+      company_name,
+      email,
+      password,
+      subdomain,
+      logoBase64,
+      category_id,
+      subcategory_id,
+      sales_agent_id,
+      sales_man_name,
+      sales_man_phone,
+      operation_status,
+      payment_cycle,
+      payment_amount,
+    } = req.body;
 
-    if (!company_name || !email || !password || !package_id || !subdomain) {
+    if (!company_name || !email || !password || !subdomain) {
       throw new BadRequest(
-        "company_name, email, password, package_id, subdomain are required",
+        "company_name, email, password, subdomain are required",
       );
     }
-
-    const pkg = await PackageModel.findById(package_id);
-    if (!pkg) throw new NotFound("Package not found");
 
     const validationError = validateSubdomainName(subdomain);
     if (validationError) throw new BadRequest(validationError);
@@ -47,15 +92,27 @@ export const createClient = asyncHandler(
     });
     if (exists) throw new Conflict("Email or subdomain already exists");
 
+    const classification = await resolveClassification(
+      category_id,
+      subcategory_id,
+    );
+
     const client = await ClientModel.create({
       company_name,
       email,
       password,
       subdomain: sanitized,
-      package_id,
       logoBase64,
       status: "pending",
       provisioning_status: "pending",
+      category_id: classification.category_id,
+      subcategory_id: classification.subcategory_id,
+      sales_agent_id,
+      sales_man_name,
+      sales_man_phone,
+      operation_status,
+      payment_cycle,
+      payment_amount: payment_amount ?? 0,
     });
 
     await logAudit({
@@ -105,10 +162,26 @@ export const createClient = asyncHandler(
  * GET /api/admin/clients
  */
 export const listClients = asyncHandler(
-  async (_req: AuthRequest, res: Response) => {
-    const clients = await ClientModel.find()
+  async (req: AuthRequest, res: Response) => {
+    const { status, category_id, subcategory_id, search } = req.query as any;
+
+    const filter: any = {};
+    if (status) filter.status = status;
+    if (category_id) filter.category_id = category_id;
+    if (subcategory_id) filter.subcategory_id = subcategory_id;
+    if (search) {
+      filter.$or = [
+        { company_name: new RegExp(String(search), "i") },
+        { email: new RegExp(String(search), "i") },
+        { subdomain: new RegExp(String(search), "i") },
+      ];
+    }
+
+    const clients = await ClientModel.find(filter)
       .sort({ createdAt: -1 })
-      .populate("package_id", "name features");
+      .populate("category_id", "name")
+      .populate("subcategory_id", "name")
+      .populate("sales_agent_id", "name email");
 
     SuccessResponse(res, {
       message: "Clients retrieved",
@@ -122,20 +195,16 @@ export const listClients = asyncHandler(
  */
 export const getClientById = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const client = await ClientModel.findById(req.params.id).populate(
-      "package_id",
-    );
+    const client = await ClientModel.findById(req.params.id)
+      .populate("category_id", "name")
+      .populate("subcategory_id", "name")
+      .populate("sales_agent_id", "name email");
 
     if (!client) throw new NotFound("Client not found");
 
-    const sub = await SubscriptionModel.findOne({
-      client_id: client._id,
-      status: "active",
-    }).sort({ end_date: -1 });
-
     SuccessResponse(res, {
       message: "Client retrieved",
-      data: { client, subscription: sub },
+      data: { client },
     });
   },
 );
@@ -158,7 +227,7 @@ export const getProvisioningStatus = asyncHandler(
 
 /**
  * PATCH /api/admin/clients/:id
- * يعدّل بيانات أساسية (اسم/إيميل/باكدج/حالة).
+ * يعدّل بيانات أساسية (اسم/إيميل/تصنيف/حالة).
  * Subdomain لا يتغير بعد الإنشاء.
  */
 export const updateClient = asyncHandler(
@@ -173,6 +242,26 @@ export const updateClient = asyncHandler(
         email: rest.email.toLowerCase(),
       });
       if (exists) throw new Conflict("Email already in use");
+    }
+
+    if (
+      rest.category_id !== undefined ||
+      rest.subcategory_id !== undefined
+    ) {
+      const classification = await resolveClassification(
+        rest.category_id !== undefined
+          ? rest.category_id
+          : client.category_id
+            ? String(client.category_id)
+            : null,
+        rest.subcategory_id !== undefined
+          ? rest.subcategory_id
+          : client.subcategory_id
+            ? String(client.subcategory_id)
+            : null,
+      );
+      rest.category_id = classification.category_id;
+      rest.subcategory_id = classification.subcategory_id;
     }
 
     Object.assign(client, rest);
@@ -204,7 +293,6 @@ export const deleteClient = asyncHandler(
     if (!client) throw new NotFound("Client not found");
 
     await ClientModel.findByIdAndDelete(client._id);
-    await SubscriptionModel.deleteMany({ client_id: client._id });
     await TenantApiKeyModel.updateMany(
       { client_id: client._id },
       { active: false },
@@ -463,7 +551,7 @@ export const installClientSsl = asyncHandler(
 
 /**
  * DELETE /api/admin/clients/:id/full
- * حذف كامل: DB + subdomains + files + subscription + api keys + client record.
+ * حذف كامل: DB + subdomains + files + api keys + client record.
  * ⚠️ خطير — مفيش rollback.
  */
 export const deleteClientFull = asyncHandler(
@@ -493,8 +581,7 @@ export const deleteClientFull = asyncHandler(
         .catch((err) => console.warn(`Drop DB failed: ${err.message}`));
     }
 
-    // 3. Delete subscriptions + api keys
-    await SubscriptionModel.deleteMany({ client_id: client._id });
+    // 3. Delete api keys
     await TenantApiKeyModel.deleteMany({ client_id: client._id });
 
     // 4. Delete client record

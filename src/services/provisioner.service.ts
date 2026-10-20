@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 import mongoose from "mongoose";
 import { env } from "../config/env";
 import { ClientModel } from "../models/Client";
-import { SubscriptionModel } from "../models/Subscription";
 import { TenantApiKeyModel } from "../models/TenantApiKey";
 import {
   createSubdomain,
@@ -24,6 +23,7 @@ interface ProvisionContext {
   frontendSubdomain?: string;
   backendSubdomain?: string;
   rawApiKey?: string;
+  dbExisted?: boolean;
   completed: string[];
 }
 
@@ -32,9 +32,7 @@ interface ProvisionContext {
 // ============================================================================
 
 export async function provisionClient(clientId: string) {
-  const client = await ClientModel.findById(clientId)
-    .select("+password")
-    .populate("package_id");
+  const client = await ClientModel.findById(clientId).select("+password");
   if (!client) throw new Error(`Client ${clientId} not found`);
 
   // ==========================================================================
@@ -56,14 +54,14 @@ export async function provisionClient(clientId: string) {
   const ctx: ProvisionContext = {
     clientId: client._id.toString(),
     subdomain: client.subdomain,
-    dbName: `sc_${client._id}`,
+    dbName: `${env.TENANT_DB_PREFIX}${client._id}`,
     completed: [],
   };
 
   try {
-    // 1. Tenant DB
+    // 1. Tenant DB (على MongoDB الموجود على سيرفر Plesk)
     await setProvisioningStatus(clientId, "creating_db");
-    await createTenantDatabase(ctx.dbName, client);
+    ctx.dbExisted = await createTenantDatabase(ctx.dbName, client);
     ctx.completed.push("db");
 
     // 2. Subdomains (frontend + backend)
@@ -86,20 +84,12 @@ export async function provisionClient(clientId: string) {
     await writeBackendEnv(ctx);
     ctx.completed.push("backendEnv");
 
-    // 6. Subscription (سنة من الآن — عدّلها حسب حاجتك)
-    await setProvisioningStatus(clientId, "creating_subscription");
-    await createInitialSubscription(
-      ctx.clientId,
-      (client.package_id as any)?._id,
-    );
-    ctx.completed.push("subscription");
-
-    // 7. SSL (best-effort)
+    // 6. SSL (best-effort)
     await setProvisioningStatus(clientId, "installing_ssl");
     await installSslSafe(ctx.frontendSubdomain, ctx.backendSubdomain);
     ctx.completed.push("ssl");
 
-    // 8. Finalize (استخدم findByIdAndUpdate لتفادي أخطاء الـ validation على حقل الباسورد)
+    // 7. Finalize (استخدم findByIdAndUpdate لتفادي أخطاء الـ validation على حقل الباسورد)
     await ClientModel.findByIdAndUpdate(clientId, {
       subdomain_url: `https://${ctx.frontendSubdomain}`,
       backend_url: `https://${ctx.backendSubdomain}`,
@@ -142,17 +132,17 @@ async function simulateProvisioning(client: any) {
   const ctx: ProvisionContext = {
     clientId: client._id.toString(),
     subdomain: client.subdomain,
-    dbName: `sc_${client._id}`,
+    dbName: `${env.TENANT_DB_PREFIX}${client._id}`,
     completed: [],
   };
 
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   try {
-    // 1. Tenant DB (real — أنشئها فعلاً في MongoDB لأنها مش محتاجة Plesk)
+    // 1. Tenant DB (real — على MongoDB بتاع Plesk)
     await setProvisioningStatus(ctx.clientId, "creating_db");
     await delay(600);
-    await createTenantDatabase(ctx.dbName, client);
+    ctx.dbExisted = await createTenantDatabase(ctx.dbName, client);
     ctx.completed.push("db");
     console.log(`🧪 [DEV] DB created: ${ctx.dbName}`);
 
@@ -183,23 +173,13 @@ async function simulateProvisioning(client: any) {
     ctx.completed.push("backendEnv");
     console.log(`🧪 [DEV] Backend .env write simulated`);
 
-    // 6. Subscription (real)
-    await setProvisioningStatus(ctx.clientId, "creating_subscription");
-    await delay(400);
-    await createInitialSubscription(
-      ctx.clientId,
-      (client.package_id as any)._id,
-    );
-    ctx.completed.push("subscription");
-    console.log(`🧪 [DEV] Subscription created`);
-
-    // 7. SSL (skip)
+    // 6. SSL (skip)
     await setProvisioningStatus(ctx.clientId, "installing_ssl");
     await delay(300);
     ctx.completed.push("ssl");
     console.log(`🧪 [DEV] SSL install simulated`);
 
-    // 8. Finalize
+    // 7. Finalize
     await ClientModel.findByIdAndUpdate(ctx.clientId, {
       subdomain_url: `https://${ctx.frontendSubdomain}`,
       backend_url: `https://${ctx.backendSubdomain}`,
@@ -239,35 +219,63 @@ async function setProvisioningStatus(clientId: string, status: string) {
   });
 }
 
-async function createTenantDatabase(dbName: string, client: any) {
-  console.log(`[Provision] Creating tenant DB on Tenant Cluster: ${dbName}`);
+async function createTenantDatabase(
+  dbName: string,
+  client: any,
+): Promise<boolean> {
+  console.log(`[Provision] Creating tenant DB on Plesk MongoDB: ${dbName}`);
 
   const conn = await getTenantDatabase(dbName);
+  const db = conn.getClient().db(dbName);
 
-  // Metadata
+  // هل الداتابيز كانت موجودة قبل كده؟ (مهم عشان الـ rollback ميمسحش بيانات)
+  const existingCollections = await db
+    .listCollections({}, { nameOnly: true })
+    .toArray();
+  const existed = existingCollections.length > 0;
+
+  // Metadata — idempotent (لو موجودة من ترحيل أو retry، منكررهاش)
   await conn.createCollection("metadata").catch(() => {});
-  await conn.collection("metadata").insertOne({
-    client_id: client._id,
-    company_name: client.company_name,
-    created_at: new Date(),
-  });
+  const metadataExists =
+    (await conn.collection("metadata").countDocuments({})) > 0;
 
-  // Seed admin user
+  if (!metadataExists) {
+    await conn.collection("metadata").insertOne({
+      client_id: client._id,
+      company_name: client.company_name,
+      created_at: new Date(),
+    });
+  } else {
+    console.log(`[Provision] metadata already exists in ${dbName} — kept`);
+  }
+
+  // Seed admin user — idempotent
   await conn.createCollection("users").catch(() => {});
-  await conn.collection("users").insertOne({
-    username: "admin",
-    email: client.email,
-    password_hash: client.password, // already hashed by Client pre-save
-    company_name: client.company_name,
-    phone: "0000000000",
-    role: "superadmin",
-    status: "active",
-    permissions: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  const adminExists =
+    (await conn.collection("users").countDocuments({ role: "superadmin" })) > 0;
 
-  console.log(`[Provision] DB ${dbName} created and seeded`);
+  if (!adminExists) {
+    await conn.collection("users").insertOne({
+      username: "admin",
+      email: client.email,
+      password_hash: client.password, // already hashed by Client pre-save
+      company_name: client.company_name,
+      phone: "0000000000",
+      role: "superadmin",
+      status: "active",
+      permissions: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } else {
+    console.log(`[Provision] tenant admin already exists in ${dbName} — kept`);
+  }
+
+  console.log(
+    `[Provision] DB ${dbName} ${existed ? "already existed" : "created"} and ready`,
+  );
+
+  return existed;
 }
 
 async function deployFiles(ctx: ProvisionContext) {
@@ -349,22 +357,6 @@ async function writeBackendEnv(ctx: ProvisionContext) {
     dbName: ctx.dbName,
     superApiKey: ctx.rawApiKey!,
   });
-}
-
-async function createInitialSubscription(clientId: string, packageId: string) {
-  const start = new Date();
-  const end = new Date();
-  end.setFullYear(end.getFullYear() + 1); // سنة
-
-  await SubscriptionModel.create({
-    client_id: clientId,
-    package_id: packageId,
-    start_date: start,
-    end_date: end,
-    status: "active",
-  });
-
-  console.log(`[Provision] Subscription created until ${end.toISOString()}`);
 }
 
 async function installSslSafe(frontendSub: string, backendSub: string) {
@@ -652,10 +644,6 @@ async function rollback(ctx: ProvisionContext) {
           );
           break;
 
-        case "subscription":
-          await SubscriptionModel.deleteMany({ client_id: ctx.clientId });
-          break;
-
         case "files":
           await fs
             .rm(path.join(env.PLESK_VHOSTS_DIR, ctx.subdomain), {
@@ -684,7 +672,14 @@ async function rollback(ctx: ProvisionContext) {
           );
           break;
 
-        case "db":
+        case "db": {
+          if (ctx.dbExisted) {
+            console.log(
+              `[Rollback] DB ${ctx.dbName} existed before provisioning — keeping it`,
+            );
+            break;
+          }
+
           const conn = await getTenantDatabase(ctx.dbName);
           await conn
             .dropDatabase()
@@ -692,6 +687,7 @@ async function rollback(ctx: ProvisionContext) {
               console.warn(`[Rollback] dropDatabase failed: ${err.message}`),
             );
           break;
+        }
       }
       console.log(`[Rollback] ✅ ${step}`);
     } catch (err: any) {

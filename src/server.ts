@@ -6,11 +6,10 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import { env } from "./config/env";
 import { connectDB } from "./config/db";
-import { seedRootAdmin, seedDefaultPackage } from "./services/seed.service";
+import { seedRootAdmin } from "./services/seed.service";
 import apiRoutes from "./routes";
 import { errorHandler } from "./middlewares/errorHandler";
 import { NotFound } from "./utils/errors";
-import { startSubscriptionCron } from "./services/subscription.cron";
 
 dotenv.config();
 
@@ -35,7 +34,7 @@ app.use(
 
       if (
         allowed.includes(origin) ||
-        /^https?:\/\/[a-z0-9-]+\.wego\.org(:\d+)?$/i.test(origin)
+        /^https?:\/\/[a-z0-9-]+\.wegz\.org(:\d+)?$/i.test(origin)
       ) {
         return callback(null, true);
       }
@@ -76,8 +75,6 @@ server.headersTimeout = 301_000;
 async function bootstrap() {
   await connectDB();
   await seedRootAdmin();
-  await seedDefaultPackage();
-  startSubscriptionCron();
 
   server.listen(env.PORT, () => {
     console.log(`🚀 Super Backend listening on http://localhost:${env.PORT}`);

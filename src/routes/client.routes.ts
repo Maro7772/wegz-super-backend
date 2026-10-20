@@ -16,7 +16,7 @@ import {
   deleteClientFull,
   retryProvisioning,
 } from "../controllers/client.controller";
-import { clientSubRoutes } from "./subscription.routes";
+import { provisionNow } from "../controllers/provision.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 import { requirePermission } from "../middlewares/permission.middleware";
 
@@ -41,6 +41,11 @@ router.post(
   "/:id/retry-provisioning",
   requirePermission("clients:update"),
   retryProvisioning,
+);
+router.post(
+  "/:id/provision-now",
+  requirePermission("provisioning:run"),
+  provisionNow,
 );
 
 // ---- API Key ----
@@ -88,8 +93,5 @@ router.delete(
   requirePermission("clients:delete"),
   deleteClientFull,
 );
-
-// ---- Subscriptions (nested) ----
-router.use("/:id/subscriptions", clientSubRoutes);
 
 export default router;

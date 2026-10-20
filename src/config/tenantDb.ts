@@ -4,55 +4,85 @@ import { env } from "./env";
 let tenantClusterConnection: mongoose.Connection | null = null;
 
 /**
- * Returns the full MongoDB connection string for a specific tenant database.
- * Formats the base TENANT_MONGO_URI by injecting the tenant dbName.
+ * يبني URI للـ Plesk MongoDB (قاعدة بيانات العملاء).
+ * - لو PLESK_MONGO_URI فيه credentials أصلاً → يُستخدم كما هو.
+ * - لو PLESK_MONGO_USER موجود → يحقن الـ credentials.
  */
-export function getTenantMongoUri(dbName: string): string {
-  const baseUri = env.TENANT_MONGO_URI || env.MONGO_URI;
-  const qIndex = baseUri.indexOf("?");
+function buildPleskMongoUri(): string {
+  let uri = env.PLESK_MONGO_URI || env.TENANT_MONGO_URI || env.MONGO_URI;
 
-  if (qIndex !== -1) {
-    const beforeQ = baseUri.substring(0, qIndex).replace(/\/+$/, "");
-    const afterQ = baseUri.substring(qIndex);
-    const lastSlash = beforeQ.lastIndexOf("/");
-    const prefix = beforeQ.substring(0, lastSlash + 1);
-    return `${prefix}${dbName}${afterQ}`;
-  } else {
-    const clean = baseUri.replace(/\/+$/, "");
-    const lastSlash = clean.lastIndexOf("/");
-    const prefix = clean.substring(0, lastSlash + 1);
-    return `${prefix}${dbName}`;
+  if (env.PLESK_MONGO_USER) {
+    const user = encodeURIComponent(env.PLESK_MONGO_USER);
+    const pass = encodeURIComponent(env.PLESK_MONGO_PASS || "");
+    // نحقن الـ credentials فقط لو مش موجودة بالفعل
+    if (!/^mongodb(\+srv)?:\/\/[^/@]+@/.test(uri)) {
+      uri = uri.replace(/^mongodb(\+srv)?:\/\//, `mongodb$1://${user}:${pass}@`);
+    }
+
+    // أغلب يوزرات MongoDB على Plesk بتتعمل في admin DB
+    if (!/[?&]authSource=/.test(uri)) {
+      uri += (uri.includes("?") ? "&" : "?") + "authSource=admin";
+    }
   }
+
+  return uri;
 }
 
 /**
- * Connects to or reuses the dedicated Tenant MongoDB cluster connection.
+ * يرجع connection string كامل لقاعدة بيانات عميل معيّن على Plesk.
+ * مثال: mongodb://127.0.0.1:27017/sc_507f1f77bcf86cd799439011
+ */
+export function getTenantMongoUri(dbName: string): string {
+  const baseUri = buildPleskMongoUri();
+
+  const qIndex = baseUri.indexOf("?");
+  const query = qIndex >= 0 ? baseUri.slice(qIndex) : "";
+  const withoutQuery = qIndex >= 0 ? baseUri.slice(0, qIndex) : baseUri;
+
+  // نحتفظ بالـ scheme + authority فقط ونستبدل الـ path باسم الداتابيز
+  const schemeEnd = withoutQuery.indexOf("://");
+  const authorityStart = schemeEnd >= 0 ? schemeEnd + 3 : 0;
+  const slashAfterAuthority = withoutQuery.indexOf("/", authorityStart);
+  const authority =
+    slashAfterAuthority === -1
+      ? withoutQuery
+      : withoutQuery.slice(0, slashAfterAuthority);
+
+  return `${authority.replace(/\/+$/, "")}/${dbName}${query}`;
+}
+
+/**
+ * يتصل بـ MongoDB الموجود على سيرفر Plesk (مرة واحدة ويُعاد استخدام الاتصال).
  */
 export async function getTenantClusterConnection(): Promise<mongoose.Connection> {
-  const tenantUri = env.TENANT_MONGO_URI;
-  if (!tenantUri) {
-    return mongoose.connection;
-  }
-
   if (tenantClusterConnection && tenantClusterConnection.readyState === 1) {
     return tenantClusterConnection;
   }
 
   try {
-    tenantClusterConnection = mongoose.createConnection(tenantUri);
+    tenantClusterConnection = mongoose.createConnection(buildPleskMongoUri());
     await tenantClusterConnection.asPromise();
-    console.log("✅ Connected to Tenant MongoDB Cluster");
+    console.log("✅ Connected to Plesk MongoDB (tenant databases)");
     return tenantClusterConnection;
   } catch (err: any) {
-    console.error("❌ Failed to connect to Tenant MongoDB Cluster:", err.message);
-    throw err;
+    if (tenantClusterConnection) {
+      await tenantClusterConnection.close().catch(() => {});
+      tenantClusterConnection = null;
+    }
+    console.error("❌ Failed to connect to Plesk MongoDB:", err.message);
+    throw new Error(
+      `Cannot connect to Plesk MongoDB at "${env.PLESK_MONGO_URI}". ` +
+        `اتأكد إن MongoDB شغال على السيرفر وإن PLESK_MONGO_URI صح. (${err.message})`,
+    );
   }
 }
 
 /**
- * Gets the tenant-specific Mongoose connection for a given database name.
+ * يرجع قاعدة بيانات العميل (ويُنشئها تلقائيًا عند أول كتابة).
  */
-export async function getTenantDatabase(dbName: string): Promise<mongoose.Connection> {
+export async function getTenantDatabase(
+  dbName: string,
+): Promise<mongoose.Connection> {
   const clusterConn = await getTenantClusterConnection();
   return clusterConn.useDb(dbName, { useCache: true });
 }

@@ -32,9 +32,16 @@ export const env = {
   MASTER_BACKEND_DIR: optional("MASTER_BACKEND_DIR"),
   PLESK_SYSTEM_USER: optional("PLESK_SYSTEM_USER"),
 
+  // ---- Plesk MongoDB (tenant DBs تُنشأ هنا — مش على Atlas) ----
+  PLESK_MONGO_URI: optional("PLESK_MONGO_URI", "mongodb://127.0.0.1:27017"),
+  PLESK_MONGO_USER: optional("PLESK_MONGO_USER", ""),
+  PLESK_MONGO_PASS: optional("PLESK_MONGO_PASS", ""),
+  TENANT_DB_PREFIX: optional("TENANT_DB_PREFIX", "sc_"),
+
+  // legacy / اختياري — لو موجود بيُستخدم كـ fallback فقط
+  TENANT_MONGO_URI: optional("TENANT_MONGO_URI", ""),
   MONGO_TENANT_USER: optional("MONGO_TENANT_USER", "admin"),
   MONGO_TENANT_PASS: optional("MONGO_TENANT_PASS", ""),
-  TENANT_MONGO_URI: optional("TENANT_MONGO_URI", ""),
 
   SUPER_SYSTEGO_URL:
     optional("SUPER_SYSTEGO_URL") || optional("SUPER_WEGZ_URL"),
@@ -43,4 +50,9 @@ export const env = {
   VERSION_UPDATER_API_KEY: optional("VERSION_UPDATER_API_KEY"),
 
   SSL_ADMIN_EMAIL: optional("SSL_ADMIN_EMAIL"),
+
+  // ---- Finance / Reports ----
+  CURRENCY: optional("CURRENCY", "EGP"),
+  TIMEZONE: optional("TIMEZONE", "Africa/Cairo"),
+  INVOICE_PREFIX: optional("INVOICE_PREFIX", "WEGZ"),
 } as const;
