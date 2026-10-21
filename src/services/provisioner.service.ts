@@ -249,26 +249,51 @@ async function createTenantDatabase(
     console.log(`[Provision] metadata already exists in ${dbName} — kept`);
   }
 
-  // Seed admin user — idempotent
+  // Seed admin user — idempotent (مطابق لموديل المستخدم في wegz-backend)
   await conn.createCollection("users").catch(() => {});
   const adminExists =
-    (await conn.collection("users").countDocuments({ role: "superadmin" })) > 0;
+    (await conn.collection("users").countDocuments({ email: client.email })) > 0;
 
   if (!adminExists) {
     await conn.collection("users").insertOne({
-      username: "admin",
+      name: client.company_name,
       email: client.email,
-      password_hash: client.password, // already hashed by Client pre-save
-      company_name: client.company_name,
-      phone: "0000000000",
-      role: "superadmin",
-      status: "active",
-      permissions: [],
+      phone: client.sales_man_phone || "0000000000",
+      password: client.password, // bcrypt hash already applied by Client pre-save
+      role: "admin",
+      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
   } else {
     console.log(`[Provision] tenant admin already exists in ${dbName} — kept`);
+  }
+
+  // Seed default themes — idempotent (بدونها لوحة التحكم تبدأ فاضية)
+  await conn.createCollection("themes").catch(() => {});
+  const themesExist = (await conn.collection("themes").countDocuments({})) > 0;
+
+  if (!themesExist) {
+    await conn.collection("themes").insertMany([
+      {
+        name: "Theme 1",
+        description: "",
+        isActive: true,
+        activeMode: "light",
+        availableModes: ["dark", "light"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        name: "Theme 2",
+        description: "",
+        isActive: false,
+        activeMode: "light",
+        availableModes: ["dark", "light"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
   }
 
   console.log(
@@ -472,7 +497,60 @@ async function chownPleskUser(dir: string) {
 
 async function writeAppJsShim(backendDir: string) {
   const appJsPath = path.join(backendDir, "app.js");
-  const lines = [
+
+  // اكتشف نوع الموديول من package.json (wegz-backend = ESM، Systego = CJS)
+  let isEsm = false;
+  try {
+    const pkgRaw = await fs.readFile(
+      path.join(backendDir, "package.json"),
+      "utf-8",
+    );
+    isEsm = JSON.parse(pkgRaw)?.type === "module";
+  } catch {
+    // لو مش قادر يقرأ package.json، افترض CJS
+  }
+
+  const esmLines = [
+    "import fs from 'node:fs';",
+    "import path from 'node:path';",
+    "import { fileURLToPath, pathToFileURL } from 'node:url';",
+    "",
+    "const __dirname = path.dirname(fileURLToPath(import.meta.url));",
+    "const logFile = path.join(__dirname, 'startup-error.log');",
+    "",
+    "process.on('uncaughtException', (err) => {",
+    "    const msg = new Date().toISOString() + ' [UNCAUGHT] ' + ((err && err.stack) || err) + '\\n';",
+    "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
+    "    console.error(msg);",
+    "});",
+    "",
+    "process.on('unhandledRejection', (reason) => {",
+    "    const msg = new Date().toISOString() + ' [UNHANDLED] ' + String(reason) + '\\n';",
+    "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
+    "});",
+    "",
+    "const candidates = ['./dist/server.js', './dist/src/server.js', './dist/index.js'];",
+    "let started = false;",
+    "try {",
+    "    for (const rel of candidates) {",
+    "        const full = path.join(__dirname, rel);",
+    "        if (fs.existsSync(full)) {",
+    "            await import(pathToFileURL(full).href);",
+    "            started = true;",
+    "            break;",
+    "        }",
+    "    }",
+    "    if (!started) throw new Error('Server entry file not found in ./dist/ (looked for dist/server.js, dist/src/server.js, dist/index.js)');",
+    "} catch (err) {",
+    "    const msg = new Date().toISOString() + ' [STARTUP] ' + ((err && err.stack) || err) + '\\n';",
+    "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
+    "    console.error(msg);",
+    "    process.exit(1);",
+    "}",
+    "",
+  ];
+
+  const cjsLines = [
     "const fs = require('fs');",
     "const path = require('path');",
     "const logFile = path.join(__dirname, 'startup-error.log');",
@@ -506,7 +584,15 @@ async function writeAppJsShim(backendDir: string) {
     "});",
     "",
   ];
-  await fs.writeFile(appJsPath, lines.join("\n"), "utf-8");
+
+  await fs.writeFile(
+    appJsPath,
+    (isEsm ? esmLines : cjsLines).join("\n"),
+    "utf-8",
+  );
+  console.log(
+    `[Provision] app.js shim written (${isEsm ? "ESM" : "CJS"} mode)`,
+  );
 }
 
 async function writeFrontendHtaccess(dir: string) {
