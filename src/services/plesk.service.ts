@@ -112,7 +112,7 @@ export async function createSubdomain(name: string): Promise<string> {
       <name>${sanitized}</name>
       <property>
         <name>www_root</name>
-        <value>/subdomains/${sanitized}</value>
+        <value>/${sanitized}</value>
       </property>
     </add>
   </subdomain>

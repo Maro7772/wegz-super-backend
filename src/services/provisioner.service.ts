@@ -84,12 +84,7 @@ export async function provisionClient(clientId: string) {
     await writeBackendEnv(ctx);
     ctx.completed.push("backendEnv");
 
-    // 6. SSL (best-effort)
-    await setProvisioningStatus(clientId, "installing_ssl");
-    await installSslSafe(ctx.frontendSubdomain, ctx.backendSubdomain);
-    ctx.completed.push("ssl");
-
-    // 7. Finalize (استخدم findByIdAndUpdate لتفادي أخطاء الـ validation على حقل الباسورد)
+    // 6. Finalize DB record (استخدم findByIdAndUpdate لتفادي أخطاء الـ validation على حقل الباسورد)
     await ClientModel.findByIdAndUpdate(clientId, {
       subdomain_url: `https://${ctx.frontendSubdomain}`,
       backend_url: `https://${ctx.backendSubdomain}`,
@@ -98,6 +93,19 @@ export async function provisionClient(clientId: string) {
       provisioning_status: "completed",
       provisioning_error: null,
     });
+
+    // 7. Enable Node.js + issue SSL + fix permissions + restart.
+    //    This step restarts the web server (Plesk reconfigures the vhost), which kills
+    //    this Node process because the super backend itself runs under Passenger.
+    //    So it is executed by a temporary server-wide scheduled task (outside Passenger),
+    //    AFTER the client is already marked as completed. Best effort, idempotent.
+    try {
+      await finalizeTenant(ctx);
+    } catch (err: any) {
+      console.warn(
+        `[Provision] Finalize task notice for ${ctx.subdomain}: ${err.message} (task continues on the server)`,
+      );
+    }
 
     console.log(`✅ Provisioning completed for ${client.company_name}`);
     return {
@@ -328,34 +336,9 @@ async function deployFiles(ctx: ProvisionContext) {
   await copyNodeModules(backendDir);
   await chownPleskUser(backendDir);
 
-  // Enable Node.js for backend subdomain
-  const apiSub = `api-${ctx.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
-  console.log(`[Provision] Enabling Node.js for ${apiSub}`);
-  try {
-    await executePleskCli("extension", [
-      "--call",
-      "nodejs",
-      "--enable",
-      "-domain",
-      apiSub,
-    ]);
-  } catch (err: any) {
-    console.warn(
-      `[Provision] Note: Node.js CLI enable returned: ${err.message} (safe if configured via Plesk panel)`,
-    );
-  }
-
-  // Disable nginx proxy (recommended for Node apps in Plesk)
-  try {
-    await executePleskCli("domain", [
-      "--update-web-server-settings",
-      apiSub,
-      "-nginx-proxy-mode",
-      "false",
-    ]);
-  } catch (err: any) {
-    console.warn(`[Provision] nginx-proxy-mode toggle failed: ${err.message}`);
-  }
+  // NOTE: enabling Node.js and issuing SSL are intentionally NOT done here.
+  // They reconfigure the vhost and restart the web server, which kills this process
+  // (the super backend runs under Passenger). They run in finalizeTenant() instead.
 }
 
 async function generateTenantApiKey(clientId: string): Promise<string> {
@@ -384,32 +367,151 @@ async function writeBackendEnv(ctx: ProvisionContext) {
   });
 }
 
-async function installSslSafe(frontendSub: string, backendSub: string) {
-  const email = env.SSL_ADMIN_EMAIL;
-  if (!email) {
-    console.warn("[Provision] SSL skipped: SSL_ADMIN_EMAIL not set");
-    return;
-  }
+/**
+ * Final tenant steps that MUST run outside the Passenger process group:
+ *   - enable Node.js (Plesk reconfigures the vhost → restarts the web server)
+ *   - issue Let's Encrypt certificates for the frontend/backend subdomains
+ *   - fix file permissions so nginx can read the new vhost
+ *   - restart the tenant app
+ *
+ * They are executed by a temporary server-wide root scheduled task. The scheduled
+ * task is not a child of this Node process, so it survives the web server restart.
+ *
+ * Idempotent: safe to re-run (enable, sslit reissue, chmod, restart).
+ */
+async function finalizeTenant(ctx: ProvisionContext) {
+  const frontendSub = ctx.frontendSubdomain!;
+  const backendSub = ctx.backendSubdomain!;
+  const vhosts = env.PLESK_VHOSTS_DIR!;
+  const frontendDir = path.join(vhosts, ctx.subdomain);
+  const backendDir = path.join(vhosts, `api-${ctx.subdomain}`);
+  const nodeVersion = process.env.TENANT_NODE_VERSION || "22.23.3";
 
+  const fixPerms = async () => {
+    try {
+      await execAsync(`chmod -R a+rX "${frontendDir}" "${backendDir}"`);
+    } catch (err: any) {
+      console.warn(`[Provision] chmod warning: ${err.message}`);
+    }
+  };
+
+  await fixPerms();
+  await fs.mkdir(path.join(backendDir, "tmp"), { recursive: true });
+
+  // Enabling Node.js reconfigures the vhost and restarts the web server.
+  // This runs in the detached provisioning process (not under Passenger), so it survives.
+  console.log(`[Provision] Enabling Node.js ${nodeVersion} for ${backendSub}`);
+  await executePleskCli("extension", [
+    "--call",
+    "nodejs",
+    "--enable",
+    "-domain",
+    backendSub,
+    "-version",
+    nodeVersion,
+  ]);
+
+  // Valid TLS is required, otherwise browsers block the frontend→backend requests
+  // (preflight fails and shows up as a misleading CORS error).
   for (const sub of [frontendSub, backendSub]) {
     try {
-      console.log(`[Provision] Installing SSL for ${sub}...`);
+      console.log(`[Provision] Issuing SSL for ${sub}`);
       await executePleskCli("extension", [
-        "--exec",
-        "letsencrypt",
-        "cli.php",
-        "-d",
+        "--call",
+        "sslit",
+        "--certificate",
+        "-issue",
+        "-domain",
         sub,
-        "-m",
-        email,
+        "-secure-domain",
       ]);
-      console.log(`[Provision] ✅ SSL installed for ${sub}`);
     } catch (err: any) {
-      console.warn(
-        `[Provision] ⚠️ SSL install failed for ${sub}: ${err.message}`,
-      );
+      console.warn(`[Provision] SSL issue failed for ${sub}: ${err.message}`);
     }
   }
+
+  await fixPerms();
+  await fs.writeFile(path.join(backendDir, "tmp", "restart.txt"), "", "utf-8");
+}
+
+/**
+ * Runs provisioning outside the super backend process (Passenger).
+ *
+ * Creating subdomains / enabling Node.js / issuing SSL all make Plesk reconfigure
+ * the web server. When provisioning runs inside the super backend, that restart
+ * kills the provisioning job halfway through (status stuck on "creating_subdomain").
+ *
+ * So we start a one-shot server-wide scheduled task (root) which executes the
+ * built provisioning entrypoint as the subscription user:
+ *     node dist/scripts/provision.js <clientId>
+ * That process is independent from Apache/Passenger and runs to completion.
+ */
+export async function spawnProvisioningTask(clientId: string) {
+  const vhosts = env.PLESK_VHOSTS_DIR;
+  if (!vhosts) throw new Error("PLESK_VHOSTS_DIR is not configured");
+
+  const tmpDir = path.join(vhosts, "tmp");
+  const scriptPath = path.join(tmpDir, `provision-${clientId}.sh`);
+  const logPath = path.join(tmpDir, `provision-${clientId}.log`);
+  const appDir = path.join(vhosts, "superback.wegz.org");
+  const nodeBin = process.env.TENANT_NODE_BIN || "/opt/plesk/node/22/bin/node";
+  const systemUser = env.PLESK_SYSTEM_USER || "wegz";
+
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const writeScript = async (taskId?: string) => {
+    const script = `#!/bin/bash
+# Auto-generated provisioning runner for client ${clientId}
+LOG="${logPath}"
+{
+  echo "== provisioning start $(date -Is) =="
+  su -s /bin/bash ${systemUser} -c 'cd "${appDir}" && ${nodeBin} dist/scripts/provision.js ${clientId}'
+  echo "provision rc=$?"
+  echo "== provisioning end $(date -Is) =="
+} >> "$LOG" 2>&1
+${taskId ? `/usr/local/psa/bin/scheduler --delete ${taskId} >> "$LOG" 2>&1` : ""}
+`;
+    await fs.writeFile(scriptPath, script, { encoding: "utf-8", mode: 0o700 });
+    await fs.chmod(scriptPath, 0o700).catch(() => {});
+  };
+
+  // Script without the self-delete line first, because the task id is unknown yet.
+  await writeScript();
+
+  const created = await executePleskCli("scheduler", [
+    "--create",
+    "-user",
+    "root",
+    "-type",
+    "exec",
+    "-command",
+    `bash ${scriptPath}`,
+    "-schedule",
+    "0 0 1 1 *",
+    "-description",
+    `provision ${clientId}`,
+    "-notify",
+    "ignore",
+    "-active",
+    "true",
+  ]);
+
+  const taskId = String(created?.stdout || "").match(/ID:\s*(\d+)/)?.[1];
+  if (!taskId) {
+    throw new Error(
+      `Could not create provisioning task (scheduler output: ${JSON.stringify(created?.stdout)})`,
+    );
+  }
+
+  // Add self-cleanup now that the id is known, then start it.
+  await writeScript(taskId);
+
+  console.log(`[Provision] Started detached provisioning task ${taskId} for ${clientId}`);
+  executePleskCli("scheduler", ["--run", taskId]).catch((err: any) => {
+    // A web server restart during provisioning can drop this HTTP call.
+    // The scheduled task keeps running regardless.
+    console.warn(`[Provision] Task ${taskId} call ended: ${err.message}`);
+  });
 }
 
 // ============================================================================
@@ -510,6 +612,10 @@ async function writeAppJsShim(backendDir: string) {
     // لو مش قادر يقرأ package.json، افترض CJS
   }
 
+  // IMPORTANT: no top-level await here.
+  // Plesk/Passenger loads app.js with require(), and require() cannot load an ESM
+  // graph that contains top-level await (ERR_REQUIRE_ASYNC_MODULE). The entry file
+  // is loaded with a fire-and-forget dynamic import instead.
   const esmLines = [
     "import fs from 'node:fs';",
     "import path from 'node:path';",
@@ -518,35 +624,29 @@ async function writeAppJsShim(backendDir: string) {
     "const __dirname = path.dirname(fileURLToPath(import.meta.url));",
     "const logFile = path.join(__dirname, 'startup-error.log');",
     "",
-    "process.on('uncaughtException', (err) => {",
-    "    const msg = new Date().toISOString() + ' [UNCAUGHT] ' + ((err && err.stack) || err) + '\\n';",
+    "const logError = (tag, err) => {",
+    "    const msg = new Date().toISOString() + ' [' + tag + '] ' + ((err && err.stack) || err) + '\\n';",
     "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
     "    console.error(msg);",
-    "});",
+    "};",
     "",
-    "process.on('unhandledRejection', (reason) => {",
-    "    const msg = new Date().toISOString() + ' [UNHANDLED] ' + String(reason) + '\\n';",
-    "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
-    "});",
+    "process.on('uncaughtException', (err) => logError('UNCAUGHT', err));",
+    "process.on('unhandledRejection', (reason) => logError('UNHANDLED', reason));",
     "",
     "const candidates = ['./dist/server.js', './dist/src/server.js', './dist/index.js'];",
-    "let started = false;",
-    "try {",
-    "    for (const rel of candidates) {",
-    "        const full = path.join(__dirname, rel);",
-    "        if (fs.existsSync(full)) {",
-    "            await import(pathToFileURL(full).href);",
-    "            started = true;",
-    "            break;",
-    "        }",
-    "    }",
-    "    if (!started) throw new Error('Server entry file not found in ./dist/ (looked for dist/server.js, dist/src/server.js, dist/index.js)');",
-    "} catch (err) {",
-    "    const msg = new Date().toISOString() + ' [STARTUP] ' + ((err && err.stack) || err) + '\\n';",
-    "    try { fs.appendFileSync(logFile, msg); } catch (_) {}",
-    "    console.error(msg);",
+    "const entry = candidates",
+    "    .map((rel) => path.join(__dirname, rel))",
+    "    .find((full) => fs.existsSync(full));",
+    "",
+    "if (!entry) {",
+    "    logError('STARTUP', new Error('Server entry file not found in ./dist/ (looked for dist/server.js, dist/src/server.js, dist/index.js)'));",
     "    process.exit(1);",
     "}",
+    "",
+    "import(pathToFileURL(entry).href).catch((err) => {",
+    "    logError('STARTUP', err);",
+    "    process.exit(1);",
+    "});",
     "",
   ];
 

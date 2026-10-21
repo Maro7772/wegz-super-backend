@@ -16,7 +16,7 @@ import {
   sanitizeSubdomainName,
   validateSubdomainName,
 } from "../services/plesk.service";
-import { provisionClient } from "../services/provisioner.service"; // ← المرحلة الجاية
+import { spawnProvisioningTask } from "../services/provisioner.service"; // ← المرحلة الجاية
 
 /**
  * يتحقق من (category_id / subcategory_id) ويضمن إن الـ sub تابع للـ category.
@@ -124,22 +124,12 @@ export const createClient = asyncHandler(
       ip: req.ip,
     });
 
-    // Provision in background
-    // Provision in background
-    provisionClient(client._id.toString())
-      .then((result) => {
-        // في dev mode، اطبع الـ API key للاختبار
-        if (env.NODE_ENV === "development" && result?.rawApiKey) {
-          console.log(`\n🔑 [DEV] Tenant API Key for ${client.subdomain}:`);
-          console.log(`   ${result.rawApiKey}\n`);
-        }
-      })
-      .catch((err) => {
-        console.error(
-          `❌ Background provisioning failed for ${client._id}:`,
-          err,
-        );
-      });
+    // Provision in a detached scheduled task. Plesk restarts the web server while
+    // creating subdomains / enabling Node.js / issuing SSL, which would kill an
+    // in-process provisioning job (that is why it used to get stuck).
+    await spawnProvisioningTask(client._id.toString()).catch((err) => {
+      console.error(`❌ Could not start provisioning for ${client._id}:`, err);
+    });
 
     SuccessResponse(
       res,
@@ -619,10 +609,10 @@ export const retryProvisioning = asyncHandler(
       provisioning_error: null,
     });
 
-    // تشغيل الـ provisioning في الخلفية
-    provisionClient(client._id.toString()).catch((err) => {
+    // تشغيل الـ provisioning في الخلفية (خارج Passenger)
+    await spawnProvisioningTask(client._id.toString()).catch((err) => {
       console.error(
-        `❌ Background retry provisioning failed for ${client._id}:`,
+        `❌ Could not start retry provisioning for ${client._id}:`,
         err,
       );
     });
