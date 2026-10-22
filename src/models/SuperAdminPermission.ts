@@ -12,7 +12,13 @@ export const PERMISSIONS = [
   "clients:update",
   "clients:delete",
 
-  // ---- Categories / Subcategories ----
+  // ---- Sections ----
+  "sections:read",
+  "sections:create",
+  "sections:update",
+  "sections:delete",
+
+  // ---- Categories (deprecated — kept for old permission records) ----
   "categories:read",
   "categories:create",
   "categories:update",
@@ -50,6 +56,19 @@ export const PERMISSIONS = [
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
+
+/** صلاحيات قديمة (Categories) — متبقية فقط عشان السجلات القديمة متكسرش */
+export const DEPRECATED_PERMISSIONS: string[] = [
+  "categories:read",
+  "categories:create",
+  "categories:update",
+  "categories:delete",
+];
+
+/** الصلاحيات المعروضة في الكتالوج والقابلة للتعيين حاليًا */
+export const ACTIVE_PERMISSIONS = PERMISSIONS.filter(
+  (permission) => !DEPRECATED_PERMISSIONS.includes(permission),
+);
 
 export interface ISuperAdminPermission extends Document {
   _id: Types.ObjectId;

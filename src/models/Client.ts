@@ -48,9 +48,8 @@ export interface IClient extends Document {
   status: ClientStatus;
   logoBase64?: string;
 
-  // ---- تصنيف العميل ----
-  category_id?: Types.ObjectId;
-  subcategory_id?: Types.ObjectId;
+  // ---- السكاشن المفعّلة للعميل ----
+  sections: Types.ObjectId[];
 
   // ---- المبيعات ----
   sales_agent_id?: Types.ObjectId;
@@ -109,9 +108,11 @@ const schema = new Schema<IClient>(
     },
     logoBase64: String,
 
-    // ---- التصنيف ----
-    category_id: { type: Schema.Types.ObjectId, ref: "Category", index: true },
-    subcategory_id: { type: Schema.Types.ObjectId, ref: "Category", index: true },
+    // ---- السكاشن ----
+    sections: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Section" }],
+      default: [],
+    },
 
     // ---- المبيعات ----
     sales_agent_id: {
@@ -152,6 +153,9 @@ const schema = new Schema<IClient>(
   },
   { timestamps: true },
 );
+
+// فهرس للبحث السريع بالعميل حسب السيكشن
+schema.index({ sections: 1 });
 
 schema.pre("save", async function (next) {
   if (!this.isModified("password")) return;

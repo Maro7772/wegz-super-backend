@@ -14,9 +14,10 @@ import { env } from "../config/env";
  */
 export const verifyTenant = asyncHandler(
   async (req: TenantRequest, res: Response) => {
-    const client = await ClientModel.findById(req.tenantClientId)
-      .populate("category_id", "name")
-      .populate("subcategory_id", "name");
+    const client = await ClientModel.findById(req.tenantClientId).populate(
+      "sections",
+      "key name ar_name",
+    );
 
     if (!client) throw new NotFound("Tenant not found");
 
@@ -32,8 +33,14 @@ export const verifyTenant = asyncHandler(
           db_name: client.db_name,
           status: client.status,
           active,
-          category: (client as any).category_id?.name ?? null,
-          subcategory: (client as any).subcategory_id?.name ?? null,
+          sections: ((client as any).sections ?? [])
+            .filter(Boolean)
+            .map((section: any) => ({
+              id: section._id,
+              key: section.key,
+              name: section.name,
+              ar_name: section.ar_name ?? null,
+            })),
         },
       },
     });

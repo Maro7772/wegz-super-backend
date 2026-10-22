@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   getFinancialSummary,
   getMonthlyRevenue,
-  getRevenueByCategory,
+  getRevenueBySection,
   getRevenueBySalesAgent,
   getPendingPaymentsReport,
 } from "../controllers/financialReport.controller";
@@ -16,7 +16,9 @@ router.use(requirePermission("financial_reports:read"));
 
 router.get("/summary", getFinancialSummary);
 router.get("/monthly", getMonthlyRevenue);
-router.get("/by-category", getRevenueByCategory);
+router.get("/by-section", getRevenueBySection);
+// deprecated alias
+router.get("/by-category", getRevenueBySection);
 router.get("/by-sales-agent", getRevenueBySalesAgent);
 router.get("/pending", getPendingPaymentsReport);
 

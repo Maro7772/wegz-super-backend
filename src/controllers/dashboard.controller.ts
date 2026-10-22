@@ -2,7 +2,7 @@ import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { ClientModel } from "../models/Client";
-import { CategoryModel } from "../models/Category";
+import { SectionModel } from "../models/Section";
 import { PaymentModel } from "../models/Payment";
 import { SaleModel } from "../models/Sale";
 import { SuperAdminModel } from "../models/SuperAdmin";
@@ -25,7 +25,7 @@ export const getDashboardStats = asyncHandler(
       pendingClients,
       failedProvisioning,
       totalAdmins,
-      totalCategories,
+      totalSections,
       revenue30,
       pendingPayments,
       sales30,
@@ -37,7 +37,7 @@ export const getDashboardStats = asyncHandler(
       ClientModel.countDocuments({ status: "pending" }),
       ClientModel.countDocuments({ provisioning_status: "failed" }),
       SuperAdminModel.countDocuments(),
-      CategoryModel.countDocuments(),
+      SectionModel.countDocuments(),
       PaymentModel.aggregate([
         { $match: { status: "approve", date: { $gte: last30 } } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -79,7 +79,7 @@ export const getDashboardStats = asyncHandler(
           failed_provisioning: failedProvisioning,
         },
         admins: { total: totalAdmins },
-        categories: { total: totalCategories },
+        sections: { total: totalSections },
         finance: {
           currency: env.CURRENCY,
           revenue_last_30_days: revenue30[0]?.total ?? 0,

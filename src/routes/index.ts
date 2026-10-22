@@ -1,7 +1,7 @@
 import { Router } from "express";
 import authRoutes from "./auth.routes";
 import superAdminRoutes from "./superAdmin.routes";
-import categoryRoutes from "./category.routes";
+import sectionRoutes from "./section.routes";
 import clientRoutes from "./client.routes";
 import saleRoutes from "./sale.routes";
 import paymentRoutes from "./payment.routes";
@@ -20,8 +20,8 @@ router.use("/auth", authRoutes);
 // Super Admin management (admins + permissions)
 router.use("/admin", superAdminRoutes);
 
-// Categories / Subcategories
-router.use("/admin/categories", categoryRoutes);
+// Sections (بدل Categories/Subcategories)
+router.use("/admin/sections", sectionRoutes);
 
 // Clients
 router.use("/admin/clients", clientRoutes);

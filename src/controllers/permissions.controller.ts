@@ -4,7 +4,7 @@ import type { AuthRequest } from "../middlewares/auth.middleware";
 import { SuperAdminModel } from "../models/SuperAdmin";
 import {
   SuperAdminPermissionModel,
-  PERMISSIONS,
+  ACTIVE_PERMISSIONS,
   type Permission,
 } from "../models/SuperAdminPermission";
 import { BadRequest, NotFound, ForbiddenError } from "../utils/errors";
@@ -18,7 +18,7 @@ export const listAvailablePermissions = asyncHandler(
   async (_req: AuthRequest, res: Response) => {
     SuccessResponse(res, {
       message: "Available permissions",
-      data: { permissions: [...PERMISSIONS] },
+      data: { permissions: [...ACTIVE_PERMISSIONS] },
     });
   },
 );
@@ -45,7 +45,7 @@ export const getAdminPermissions = asyncHandler(
           is_root: admin.is_root,
         },
         permissions: admin.is_root
-          ? [...PERMISSIONS]
+          ? [...ACTIVE_PERMISSIONS]
           : (permDoc?.permissions ?? []),
       },
     });
@@ -64,9 +64,13 @@ export const updateAdminPermissions = asyncHandler(
       throw new BadRequest("permissions must be an array");
     }
 
-    const invalid = permissions.filter((p) => !PERMISSIONS.includes(p as any));
+    const invalid = permissions.filter(
+      (p) => !ACTIVE_PERMISSIONS.includes(p as any),
+    );
     if (invalid.length) {
-      throw new BadRequest(`Invalid permissions: ${invalid.join(", ")}`);
+      throw new BadRequest(
+        `Invalid or deprecated permissions: ${invalid.join(", ")}`,
+      );
     }
 
     const target = await SuperAdminModel.findById(req.params.id);

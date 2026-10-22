@@ -151,9 +151,12 @@ export const getMonthlyRevenue = asyncHandler(
 );
 
 /**
- * GET /api/admin/financial-reports/by-category?from=&to=
+ * GET /api/admin/financial-reports/by-section?from=&to=
+ * توزيع الإيرادات على السكاشن.
+ * ملاحظة: العميل اللي عنده أكتر من سيكشن بيتحسب في كل واحد منهم،
+ * فمجموع الصفوف مش لازم يساوي إجمالي الإيراد.
  */
-export const getRevenueByCategory = asyncHandler(
+export const getRevenueBySection = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { from, to } = req.query as any;
     const match = paymentMatch(from, to, { status: "approve" });
@@ -170,27 +173,36 @@ export const getRevenueByCategory = asyncHandler(
       },
       { $unwind: { path: "$client", preserveNullAndEmptyArrays: true } },
       {
+        $unwind: {
+          path: "$client.sections",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $group: {
-          _id: "$client.category_id",
+          _id: "$client.sections",
+          clients: { $addToSet: "$client._id" },
           count: { $sum: 1 },
           total: { $sum: "$amount" },
         },
       },
       {
         $lookup: {
-          from: "categories",
+          from: "sections",
           localField: "_id",
           foreignField: "_id",
-          as: "category",
+          as: "section",
         },
       },
-      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$section", preserveNullAndEmptyArrays: true } },
       {
         $project: {
           _id: 0,
-          category_id: "$_id",
-          name: { $ifNull: ["$category.name", "Uncategorized"] },
-          count: 1,
+          section_id: "$_id",
+          key: { $ifNull: ["$section.key", null] },
+          name: { $ifNull: ["$section.name", "No section"] },
+          clients_count: { $size: "$clients" },
+          payments_count: "$count",
           total: 1,
         },
       },
@@ -198,11 +210,14 @@ export const getRevenueByCategory = asyncHandler(
     ]);
 
     SuccessResponse(res, {
-      message: "Revenue by category retrieved",
-      data: { currency: env.CURRENCY, categories: rows },
+      message: "Revenue by section retrieved",
+      data: { currency: env.CURRENCY, sections: rows },
     });
   },
 );
+
+// Backward-compatible alias (نفس البيانات بشكل السكاشن)
+export const getRevenueByCategory = getRevenueBySection;
 
 /**
  * GET /api/admin/financial-reports/by-sales-agent?from=&to=

@@ -2,6 +2,7 @@ import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { ClientModel } from "../models/Client";
+import { SectionModel } from "../models/Section";
 import { PaymentModel } from "../models/Payment";
 import { SaleModel } from "../models/Sale";
 import { BadRequest, NotFound } from "../utils/errors";
@@ -20,12 +21,14 @@ function mapByClient(items: any[]) {
  */
 export const getOperationReports = asyncHandler(
   async (_req: AuthRequest, res: Response) => {
-    const clients = await ClientModel.find()
-      .select("-password")
-      .populate("category_id", "name")
-      .populate("subcategory_id", "name")
-      .populate("sales_agent_id", "name email")
-      .sort({ createdAt: -1 });
+    const [clients, totalSections] = await Promise.all([
+      ClientModel.find()
+        .select("-password")
+        .populate("sections", "key name ar_name status order")
+        .populate("sales_agent_id", "name email")
+        .sort({ createdAt: -1 }),
+      SectionModel.countDocuments({ status: "active" }),
+    ]);
 
     const ids = clients.map((c) => c._id);
 
@@ -60,9 +63,14 @@ export const getOperationReports = asyncHandler(
       const key = String(client._id);
       const pay: any = paidMap.get(key) ?? {};
       const pend: any = pendingMap.get(key) ?? {};
+      const obj: any = client.toObject();
+      const assigned = (obj.sections ?? []).filter(Boolean);
 
       return {
-        ...client.toObject(),
+        ...obj,
+        sections: assigned,
+        sections_count: assigned.length,
+        total_sections: totalSections,
         total_paid: pay.total_paid ?? 0,
         payments_count: pay.payments_count ?? 0,
         pending_amount: pend.pending_amount ?? 0,
@@ -73,7 +81,7 @@ export const getOperationReports = asyncHandler(
 
     SuccessResponse(res, {
       message: "Operation reports retrieved",
-      data: { reports },
+      data: { reports, total_sections: totalSections },
     });
   },
 );
@@ -85,15 +93,15 @@ export const getOperationReportById = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const client = await ClientModel.findById(req.params.id)
       .select("-password")
-      .populate("category_id", "name")
-      .populate("subcategory_id", "name")
+      .populate("sections", "key name ar_name status order")
       .populate("sales_agent_id", "name email");
 
     if (!client) throw new NotFound("Client report not found");
 
-    const [payments, sales] = await Promise.all([
+    const [payments, sales, totalSections] = await Promise.all([
       PaymentModel.find({ client_id: client._id }).sort({ date: -1 }),
       SaleModel.find({ client_id: client._id }).sort({ sale_date: -1 }),
+      SectionModel.countDocuments({ status: "active" }),
     ]);
 
     const totalPaid = payments
@@ -103,10 +111,18 @@ export const getOperationReportById = asyncHandler(
       .filter((p) => p.status === "pending")
       .reduce((sum, p) => sum + p.amount, 0);
 
+    const clientObj: any = client.toObject();
+    const assigned = (clientObj.sections ?? []).filter(Boolean);
+
     SuccessResponse(res, {
       message: "Operation report details retrieved",
       data: {
-        client,
+        client: {
+          ...clientObj,
+          sections: assigned,
+          sections_count: assigned.length,
+          total_sections: totalSections,
+        },
         payments,
         sales,
         totals: {
@@ -217,35 +233,47 @@ export const updateOperationStatus = asyncHandler(
  */
 export const getClientsReport = asyncHandler(
   async (_req: AuthRequest, res: Response) => {
-    const [byStatus, byCategory, byOperationStatus, total] = await Promise.all([
-      ClientModel.aggregate([
-        { $group: { _id: "$status", count: { $sum: 1 } } },
-      ]),
-      ClientModel.aggregate([
-        { $group: { _id: "$category_id", count: { $sum: 1 } } },
-        {
-          $lookup: {
-            from: "categories",
-            localField: "_id",
-            foreignField: "_id",
-            as: "category",
+    const [byStatus, bySection, byOperationStatus, total, withoutSections] =
+      await Promise.all([
+        ClientModel.aggregate([
+          { $group: { _id: "$status", count: { $sum: 1 } } },
+        ]),
+        ClientModel.aggregate([
+          { $unwind: "$sections" },
+          { $group: { _id: "$sections", count: { $sum: 1 } } },
+          {
+            $lookup: {
+              from: "sections",
+              localField: "_id",
+              foreignField: "_id",
+              as: "section",
+            },
           },
-        },
-        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            category_id: "$_id",
-            name: { $ifNull: ["$category.name", "Uncategorized"] },
-            count: 1,
+          {
+            $unwind: {
+              path: "$section",
+              preserveNullAndEmptyArrays: true,
+            },
           },
-        },
-        { $sort: { count: -1 } },
-      ]),
-      ClientModel.aggregate([
-        { $group: { _id: "$operation_status", count: { $sum: 1 } } },
-      ]),
-      ClientModel.countDocuments(),
-    ]);
+          {
+            $project: {
+              _id: 0,
+              section_id: "$_id",
+              key: { $ifNull: ["$section.key", null] },
+              name: { $ifNull: ["$section.name", "Unknown section"] },
+              count: 1,
+            },
+          },
+          { $sort: { count: -1 } },
+        ]),
+        ClientModel.aggregate([
+          { $group: { _id: "$operation_status", count: { $sum: 1 } } },
+        ]),
+        ClientModel.countDocuments(),
+        ClientModel.countDocuments({
+          $or: [{ sections: { $exists: false } }, { sections: { $size: 0 } }],
+        }),
+      ]);
 
     SuccessResponse(res, {
       message: "Clients report retrieved",
@@ -253,7 +281,8 @@ export const getClientsReport = asyncHandler(
         total,
         by_status: byStatus,
         by_operation_status: byOperationStatus,
-        by_category: byCategory,
+        by_section: bySection,
+        clients_without_sections: withoutSections,
       },
     });
   },

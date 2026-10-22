@@ -1,9 +1,9 @@
 # Wegz Super Backend
 
 Backend مركزي (Super Admin) لمنصة Wegz:
-**Admins + Permissions + Categories/Subcategories + Clients (Provisioning) + Sales + Payments + Reports + Financial Reports**.
+**Admins + Permissions + Sections + Clients (Provisioning) + Sales + Payments + Reports + Financial Reports**.
 
-> مفيش Packages ولا Subscriptions — التصنيف بقى بـ Categories/Subcategories،
+> مفيش Packages ولا Subscriptions — كل عميل بيتسند له **Sections** (Hero / Header / Footer / ...)،
 > وقواعد بيانات العملاء بتتعمل على **MongoDB الموجود على سيرفر Plesk** (مش Atlas).
 
 ---
@@ -146,11 +146,11 @@ MONGO_URI=mongodb://admin:MONGO%403030@127.0.0.1:32768/SuperWegz?authSource=admi
 ```
 src/
 ├── config/        env, db, tenantDb
-├── controllers/   auth, superAdmin, permissions, category, client,
+├── controllers/   auth, superAdmin, permissions, section, client,
 │                  sale, payment, report, financialReport, dashboard,
 │                  audit, tenant
 ├── middlewares/   auth, permission, tenantAuth, errorHandler
-├── models/        SuperAdmin, SuperAdminPermission, Category, Client,
+├── models/        SuperAdmin, SuperAdminPermission, Section, Client,
 │                  Sale, Payment, TenantApiKey, AuditLog
 ├── routes/
 ├── services/      plesk, provisioner, rebuild, seed
@@ -197,7 +197,7 @@ X-Tenant-Api-Key: <raw key>
 **الصلاحيات:**
 ```
 clients:read/create/update/delete
-categories:read/create/update/delete
+sections:read/create/update/delete
 sales:read/create/update/delete
 payments:read/create/approve/delete
 reports:read
@@ -207,29 +207,37 @@ audit:read
 provisioning:run
 ```
 
-## 3) Categories / Subcategories
+## 3) Sections
+
+بدل شجرة Categories/Subcategories، السكاشن بقت مستوى واحد مسطّح. كل عميل بيتسند له
+أكتر من Section من إجمالي السكاشن (Hero / Header / Footer / ...)، وبكده تقدر تعرض
+لكل عميل: عنده كام سيكشن من أصل كام.
 
 | Method | Route | Permission |
 |---|---|---|
-| GET | `/api/admin/categories` | `categories:read` |
-| GET | `/api/admin/categories/tree` | `categories:read` |
-| POST | `/api/admin/categories` | `categories:create` |
-| GET | `/api/admin/categories/:id` | `categories:read` |
-| PATCH | `/api/admin/categories/:id` | `categories:update` |
-| DELETE | `/api/admin/categories/:id` | `categories:delete` |
-| GET | `/api/admin/categories/:id/subcategories` | `categories:read` |
-| POST | `/api/admin/categories/:id/subcategories` | `categories:create` |
+| GET | `/api/admin/sections` | `sections:read` |
+| POST | `/api/admin/sections` | `sections:create` |
+| GET | `/api/admin/sections/:id` | `sections:read` |
+| PATCH | `/api/admin/sections/:id` | `sections:update` |
+| DELETE | `/api/admin/sections/:id` | `sections:delete` |
+| GET | `/api/admin/sections/:id/clients` | `sections:read` |
 
-**Query:** `?status=active&parent_id=root&search=...&tree=true`
+**Query:** `?status=active&search=...&with_counts=true` — `with_counts` بترجع `clients_count` لكل سيكشن.
 
 ```json
-{ "name": "Restaurants", "description": "Food & beverage", "order": 1 }
-```
-```json
-{ "name": "Cafes", "parent_id": "<categoryId>" }
+{ "name": "Hero", "key": "hero", "ar_name": "الهيرو", "order": 1 }
 ```
 
-الحذف مرفوض لو فيه Subcategories أو عملاء مستخدمين التصنيف.
+- `key` لازم يكون فريد، ولو مش مبعوت بيتولّد تلقائيًا من الاسم.
+- الحذف مرفوض لو السيكشن مسند لعملاء، إلا بـ `?force=true` (بيشيله منهم الأول).
+
+**السكاشن الافتراضية (seed):**
+`announcement, header, hero, info, info2, testimonials, contact, footer`
+
+```bash
+npm run seed:sections      # يضيف الافتراضي الناقص فقط (آمن)
+npm run migrate:sections   # يحوّل Categories القديمة إلى Sections
+```
 
 ## 4) Clients (+ Provisioning)
 
@@ -240,6 +248,8 @@ provisioning:run
 | GET | `/api/admin/clients/:id` | `clients:read` |
 | PATCH | `/api/admin/clients/:id` | `clients:update` |
 | DELETE | `/api/admin/clients/:id` | `clients:delete` |
+| GET | `/api/admin/clients/:id/sections` | `clients:read` |
+| PUT | `/api/admin/clients/:id/sections` | `clients:update` |
 | GET | `/api/admin/clients/:id/provisioning-status` | `clients:read` |
 | POST | `/api/admin/clients/:id/retry-provisioning` | `clients:update` |
 | POST | `/api/admin/clients/:id/regenerate-api-key` | `clients:update` |
@@ -260,8 +270,7 @@ provisioning:run
   "password": "Secret@123",
   "subdomain": "acme",
   "logoBase64": "data:image/png;base64,...",
-  "category_id": "<categoryId>",
-  "subcategory_id": "<subcategoryId>",
+  "sections": ["<sectionId>", "<sectionId>"],
   "sales_agent_id": "<adminId>",
   "sales_man_name": "Mohamed",
   "sales_man_phone": "01000000000",
@@ -271,7 +280,17 @@ provisioning:run
 }
 ```
 
-**Filters:** `?status=active&category_id=...&subcategory_id=...&search=...`
+**تعيين سكاشن عميل (استبدال كامل):**
+
+```http
+PUT /api/admin/clients/:id/sections
+{ "sections": ["<sectionId>", "<sectionId>"] }
+```
+
+**استجابة العميل** بتحتوي على:
+`sections` (مفصّلة) + `sections_count` + `total_sections` — جاهزة لعرض «3 من 8».
+
+**Filters:** `?status=active&section_id=...&search=...`
 
 ## 5) Sales
 
@@ -330,9 +349,9 @@ provisioning:run
 | DELETE | `/api/admin/reports/operations/:id/notes/:noteIndex` | `reports:read` |
 | GET | `/api/admin/reports/clients` | `reports:read` |
 
-- `operations`: كل العملاء + التصنيف + الحالة + إجمالي المدفوع + المعلّق + آخر دفعة.
+- `operations`: كل العملاء + السكاشن + الحالة + إجمالي المدفوع + المعلّق + آخر دفعة.
 - `operations/:id`: تفاصيل العميل + كل المدفوعات + كل المبيعات + الـ notes.
-- `clients`: ملخّص حسب الحالة / التصنيف / operation_status.
+- `clients`: ملخّص حسب الحالة / السيكشن / operation_status (مع `clients_without_sections`).
 
 ## 8) Financial Reports
 
@@ -340,7 +359,7 @@ provisioning:run
 |---|---|
 | GET | `/api/admin/financial-reports/summary` |
 | GET | `/api/admin/financial-reports/monthly?year=2026` |
-| GET | `/api/admin/financial-reports/by-category` |
+| GET | `/api/admin/financial-reports/by-section` |
 | GET | `/api/admin/financial-reports/by-sales-agent` |
 | GET | `/api/admin/financial-reports/pending` |
 

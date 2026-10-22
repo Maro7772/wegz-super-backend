@@ -4,6 +4,8 @@ import {
   listClients,
   getClientById,
   updateClient,
+  getClientSections,
+  setClientSections,
   deleteClient,
   getProvisioningStatus,
   regenerateApiKey,
@@ -29,6 +31,19 @@ router.get("/", requirePermission("clients:read"), listClients);
 router.post("/", requirePermission("clients:create"), createClient);
 router.get("/:id", requirePermission("clients:read"), getClientById);
 router.patch("/:id", requirePermission("clients:update"), updateClient);
+
+// ---- Sections assigned to a client ----
+router.get(
+  "/:id/sections",
+  requirePermission("clients:read"),
+  getClientSections,
+);
+router.put(
+  "/:id/sections",
+  requirePermission("clients:update"),
+  setClientSections,
+);
+
 router.delete("/:id", requirePermission("clients:delete"), deleteClient);
 
 // ---- Provisioning ----
