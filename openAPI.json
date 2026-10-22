@@ -3,7 +3,7 @@
   "info": {
     "title": "Wegz Super Admin API",
     "version": "1.0.0",
-    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Permissions, Categories/Subcategories, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are classified by Categories/Subcategories. Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.",
+    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Permissions, Sections, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are assigned one or more Sections (hero, header, footer, ...). Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.",
     "contact": {
       "name": "Wegz",
       "email": "admin@wegz.org"
@@ -20,25 +20,70 @@
     }
   ],
   "tags": [
-    { "name": "Health", "description": "Service health" },
-    { "name": "Auth", "description": "Admin authentication" },
-    { "name": "Admins & Permissions", "description": "Super admins and permission assignment" },
-    { "name": "Categories", "description": "Root categories and subcategories (2 levels)" },
-    { "name": "Clients", "description": "Client lifecycle and Plesk provisioning" },
-    { "name": "Sales", "description": "Deals / sales records" },
-    { "name": "Payments", "description": "Collections, approval and rejection" },
-    { "name": "Reports", "description": "Operation reports and notes" },
-    { "name": "Financial Reports", "description": "Revenue, collection and pending reports" },
-    { "name": "Dashboard", "description": "Aggregated KPIs" },
-    { "name": "Diagnostics", "description": "Root-only connectivity checks" },
-    { "name": "Audit", "description": "Audit log" },
-    { "name": "Tenant", "description": "Called by the client backend using the tenant API key" }
+    {
+      "name": "Health",
+      "description": "Service health"
+    },
+    {
+      "name": "Auth",
+      "description": "Admin authentication"
+    },
+    {
+      "name": "Admins & Permissions",
+      "description": "Super admins and permission assignment"
+    },
+    {
+      "name": "Sections",
+      "description": "Flat catalog of website sections assigned to clients (hero, header, footer, ...)"
+    },
+    {
+      "name": "Clients",
+      "description": "Client lifecycle and Plesk provisioning"
+    },
+    {
+      "name": "Sales",
+      "description": "Deals / sales records"
+    },
+    {
+      "name": "Payments",
+      "description": "Collections, approval and rejection"
+    },
+    {
+      "name": "Reports",
+      "description": "Operation reports and notes"
+    },
+    {
+      "name": "Financial Reports",
+      "description": "Revenue, collection and pending reports"
+    },
+    {
+      "name": "Dashboard",
+      "description": "Aggregated KPIs"
+    },
+    {
+      "name": "Diagnostics",
+      "description": "Root-only connectivity checks"
+    },
+    {
+      "name": "Audit",
+      "description": "Audit log"
+    },
+    {
+      "name": "Tenant",
+      "description": "Called by the client backend using the tenant API key"
+    }
   ],
-  "security": [{ "bearerAuth": [] }],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "paths": {
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Health check",
         "operationId": "health",
         "security": [],
@@ -60,7 +105,9 @@
     },
     "/api/auth/login": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Login as a super admin",
         "operationId": "login",
         "security": [],
@@ -68,7 +115,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
               "example": {
                 "email": "wegz@gmail.com",
                 "password": "123456"
@@ -97,14 +146,20 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       }
     },
     "/api/auth/me": {
       "get": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Current admin and permissions",
         "operationId": "me",
         "responses": {
@@ -126,10 +181,10 @@
                         "clients:create",
                         "clients:update",
                         "clients:delete",
-                        "categories:read",
-                        "categories:create",
-                        "categories:update",
-                        "categories:delete",
+                        "sections:read",
+                        "sections:create",
+                        "sections:update",
+                        "sections:delete",
                         "sales:read",
                         "sales:create",
                         "sales:update",
@@ -154,13 +209,17 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       }
     },
     "/api/admin/admins": {
       "get": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "List super admins",
         "operationId": "listAdmins",
         "responses": {
@@ -179,7 +238,10 @@
                         "email": "wegz@gmail.com",
                         "is_root": true,
                         "status": "active",
-                        "permissions": ["clients:read", "clients:create"],
+                        "permissions": [
+                          "clients:read",
+                          "clients:create"
+                        ],
                         "createdAt": "2026-10-01T09:00:00.000Z"
                       }
                     ]
@@ -188,12 +250,18 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Create a super admin",
         "description": "Requires admins:create. New admins start with no permissions; assign them via PUT /api/admin/admins/{id}/permissions.",
         "operationId": "createAdmin",
@@ -201,7 +269,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdminCreateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateRequest"
+              },
               "example": {
                 "name": "Sales Agent",
                 "email": "sales1@wegz.org",
@@ -231,17 +301,31 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
     "/api/admin/admins/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Get one super admin",
         "operationId": "getAdmin",
         "responses": {
@@ -259,27 +343,40 @@
                       "email": "sales1@wegz.org",
                       "is_root": false,
                       "status": "active",
-                      "permissions": ["clients:read", "sales:create"]
+                      "permissions": [
+                        "clients:read",
+                        "sales:create"
+                      ]
                     }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "patch": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Update a super admin",
         "operationId": "updateAdmin",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdminUpdateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateRequest"
+              },
               "example": {
                 "name": "Senior Sales Agent",
                 "status": "active"
@@ -308,14 +405,24 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "delete": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Delete a super admin",
         "operationId": "deleteAdmin",
         "responses": {
@@ -330,16 +437,26 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/permissions/catalog": {
       "get": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "List all available permission keys",
         "operationId": "permissionCatalog",
         "responses": {
@@ -356,10 +473,10 @@
                       "clients:create",
                       "clients:update",
                       "clients:delete",
-                      "categories:read",
-                      "categories:create",
-                      "categories:update",
-                      "categories:delete",
+                      "sections:read",
+                      "sections:create",
+                      "sections:update",
+                      "sections:delete",
                       "sales:read",
                       "sales:create",
                       "sales:update",
@@ -383,15 +500,25 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/admins/{id}/permissions": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Get permissions of an admin",
         "operationId": "getAdminPermissions",
         "responses": {
@@ -409,19 +536,30 @@
                       "email": "sales1@wegz.org",
                       "is_root": false
                     },
-                    "permissions": ["clients:read", "sales:create"]
+                    "permissions": [
+                      "clients:read",
+                      "sales:create"
+                    ]
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "put": {
-        "tags": ["Admins & Permissions"],
+        "tags": [
+          "Admins & Permissions"
+        ],
         "summary": "Replace permissions of an admin",
         "description": "Root only (enforced in the controller).",
         "operationId": "updateAdminPermissions",
@@ -429,13 +567,15 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PermissionsUpdateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/PermissionsUpdateRequest"
+              },
               "example": {
                 "permissions": [
                   "clients:read",
                   "clients:create",
                   "clients:update",
-                  "categories:read",
+                  "sections:read",
                   "sales:read",
                   "sales:create",
                   "payments:read",
@@ -459,7 +599,7 @@
                       "clients:read",
                       "clients:create",
                       "clients:update",
-                      "categories:read",
+                      "sections:read",
                       "sales:read",
                       "sales:create",
                       "payments:read",
@@ -471,358 +611,56 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      }
-    },
-    "/api/admin/categories": {
-      "get": {
-        "tags": ["Categories"],
-        "summary": "List categories (flat or tree)",
-        "operationId": "listCategories",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": { "type": "string", "enum": ["active", "inactive"] }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
-          {
-            "name": "parent_id",
-            "in": "query",
-            "description": "Use root or null to get roots; use an id to get its children.",
-            "schema": { "type": "string" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
-          { "name": "search", "in": "query", "schema": { "type": "string" } },
-          {
-            "name": "tree",
-            "in": "query",
-            "description": "true/1 returns roots with a subcategories array.",
-            "schema": { "type": "string", "enum": ["true", "1", "false"] }
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Categories",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Categories retrieved",
-                  "data": {
-                    "categories": [
-                      {
-                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                        "name": "Restaurants",
-                        "slug": "restaurants",
-                        "description": "Food and beverage",
-                        "parent_id": null,
-                        "status": "active",
-                        "order": 1,
-                        "createdAt": "2026-10-01T10:00:00.000Z",
-                        "updatedAt": "2026-10-01T10:00:00.000Z"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
-        }
-      },
-      "post": {
-        "tags": ["Categories"],
-        "summary": "Create a root category",
-        "operationId": "createCategory",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CategoryCreateRequest" },
-              "example": {
-                "name": "Restaurants",
-                "description": "Food and beverage",
-                "status": "active",
-                "order": 1
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Category created",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Category created",
-                  "data": {
-                    "category": {
-                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                      "name": "Restaurants",
-                      "slug": "restaurants",
-                      "description": "Food and beverage",
-                      "parent_id": null,
-                      "status": "active",
-                      "order": 1
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
-        }
-      }
-    },
-    "/api/admin/categories/tree": {
-      "get": {
-        "tags": ["Categories"],
-        "summary": "Full category tree",
-        "operationId": "categoriesTree",
-        "responses": {
-          "200": {
-            "description": "Tree",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Categories tree retrieved",
-                  "data": {
-                    "categories": [
-                      {
-                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                        "name": "Restaurants",
-                        "slug": "restaurants",
-                        "status": "active",
-                        "subcategories": [
-                          {
-                            "_id": "66f2b3c4d5e6f7a8b9c0d1e3",
-                            "name": "Cafes",
-                            "slug": "cafes",
-                            "parent_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                            "status": "active"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
-        }
-      }
-    },
-    "/api/admin/categories/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
-      "get": {
-        "tags": ["Categories"],
-        "summary": "Get a category with subcategories and client count",
-        "operationId": "getCategory",
-        "responses": {
-          "200": {
-            "description": "Category details",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Category retrieved",
-                  "data": {
-                    "category": {
-                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                      "name": "Restaurants",
-                      "slug": "restaurants",
-                      "parent_id": null,
-                      "status": "active"
-                    },
-                    "subcategories": [],
-                    "clients_count": 3
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "patch": {
-        "tags": ["Categories"],
-        "summary": "Update a category",
-        "operationId": "updateCategory",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CategoryUpdateRequest" },
-              "example": {
-                "name": "Restaurants & Cafes",
-                "status": "active",
-                "order": 2
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Category updated",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Category updated",
-                  "data": {
-                    "category": {
-                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                      "name": "Restaurants & Cafes",
-                      "status": "active",
-                      "order": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
-        }
-      },
-      "delete": {
-        "tags": ["Categories"],
-        "summary": "Delete a category",
-        "description": "Fails with 409 if it has subcategories or is used by clients.",
-        "operationId": "deleteCategory",
-        "responses": {
-          "200": {
-            "description": "Category deleted",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Category deleted"
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
-        }
-      }
-    },
-    "/api/admin/categories/{id}/subcategories": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
-      "get": {
-        "tags": ["Categories"],
-        "summary": "List subcategories of a category",
-        "operationId": "listSubcategories",
-        "responses": {
-          "200": {
-            "description": "Subcategories",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Subcategories retrieved",
-                  "data": {
-                    "category": {
-                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                      "name": "Restaurants"
-                    },
-                    "subcategories": [
-                      {
-                        "_id": "66f2b3c4d5e6f7a8b9c0d1e3",
-                        "name": "Cafes",
-                        "parent_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                        "status": "active"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "post": {
-        "tags": ["Categories"],
-        "summary": "Create a subcategory",
-        "operationId": "createSubcategory",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/SubcategoryCreateRequest" },
-              "example": {
-                "name": "Cafes",
-                "description": "Coffee shops",
-                "status": "active",
-                "order": 1
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Subcategory created",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Category created",
-                  "data": {
-                    "category": {
-                      "_id": "66f2b3c4d5e6f7a8b9c0d1e3",
-                      "name": "Cafes",
-                      "parent_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                      "status": "active"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
     "/api/admin/clients": {
       "get": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "List clients",
         "operationId": "listClients",
         "parameters": [
           {
             "name": "status",
             "in": "query",
-            "schema": { "type": "string", "enum": ["active", "suspended", "pending"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "suspended",
+                "pending"
+              ]
+            }
           },
-          { "name": "category_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "subcategory_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "search", "in": "query", "schema": { "type": "string" } }
+          {
+            "name": "section_id",
+            "in": "query",
+            "description": "Filter clients by an assigned section id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -843,28 +681,43 @@
                         "backend_url": "https://api-acme.wegz.org",
                         "db_name": "sc_66f3c4d5e6f7a8b9c0d1e2f3",
                         "status": "active",
-                        "category_id": {
-                          "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                          "name": "Restaurants"
-                        },
-                        "subcategory_id": {
-                          "_id": "66f2b3c4d5e6f7a8b9c0d1e3",
-                          "name": "Cafes"
-                        },
-                        "provisioning_status": "completed"
+                        "provisioning_status": "completed",
+                        "sections": [
+                          {
+                            "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                            "key": "hero",
+                            "name": "Hero",
+                            "ar_name": "الهيرو"
+                          },
+                          {
+                            "_id": "66f2b3c4d5e6f7a8b9c0d1e9",
+                            "key": "footer",
+                            "name": "Footer",
+                            "ar_name": "الفوتر"
+                          }
+                        ],
+                        "sections_count": 2,
+                        "total_sections": 8
                       }
-                    ]
+                    ],
+                    "total_sections": 8
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Create a client and start provisioning",
         "description": "Creates the client record and starts provisioning in the background: creates the tenant DB on Plesk MongoDB, subdomains, deploys builds, generates the tenant API key, writes the tenant .env, and installs SSL. Returns 202 immediately. Poll GET /api/admin/clients/{id}/provisioning-status.",
         "operationId": "createClient",
@@ -872,21 +725,25 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ClientCreateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/ClientCreateRequest"
+              },
               "example": {
                 "company_name": "Acme",
                 "email": "owner@acme.com",
                 "password": "Secret@123",
                 "subdomain": "acme",
                 "logoBase64": "data:image/png;base64,iVBORw0KGgo...",
-                "category_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                "subcategory_id": "66f2b3c4d5e6f7a8b9c0d1e3",
                 "sales_agent_id": "66f1a2b3c4d5e6f7a8b9c0d2",
                 "sales_man_name": "Mohamed",
                 "sales_man_phone": "01000000000",
                 "operation_status": "sales",
                 "payment_cycle": "monthly",
-                "payment_amount": 500
+                "payment_amount": 500,
+                "sections": [
+                  "66f2b3c4d5e6f7a8b9c0d1e2",
+                  "66f2b3c4d5e6f7a8b9c0d1e9"
+                ]
               }
             }
           }
@@ -909,18 +766,34 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
     "/api/admin/clients/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Get a client",
         "operationId": "getClient",
         "responses": {
@@ -945,44 +818,64 @@
                       "payment_amount": 500,
                       "last_payment_date": "2026-10-15T12:00:00.000Z",
                       "provisioning_status": "completed",
-                      "category_id": {
-                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                        "name": "Restaurants"
-                      },
-                      "subcategory_id": {
-                        "_id": "66f2b3c4d5e6f7a8b9c0d1e3",
-                        "name": "Cafes"
-                      },
-                      "notes": []
+                      "notes": [],
+                      "sections": [
+                        {
+                          "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                          "key": "hero",
+                          "name": "Hero",
+                          "ar_name": "الهيرو"
+                        },
+                        {
+                          "_id": "66f2b3c4d5e6f7a8b9c0d1e9",
+                          "key": "footer",
+                          "name": "Footer",
+                          "ar_name": "الفوتر"
+                        }
+                      ],
+                      "sections_count": 2,
+                      "total_sections": 8
                     }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "patch": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Update a client",
-        "description": "The subdomain cannot be changed. Changing category/subcategory is validated (subcategory must belong to the category). Password is hashed on save.",
+        "description": "The subdomain cannot be changed. sections is an array of section ids that replaces the client's assigned sections. Password is hashed on save.",
         "operationId": "updateClient",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ClientUpdateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/ClientUpdateRequest"
+              },
               "example": {
                 "company_name": "Acme LLC",
-                "category_id": "66f2b3c4d5e6f7a8b9c0d1e2",
-                "subcategory_id": "66f2b3c4d5e6f7a8b9c0d1e3",
                 "status": "active",
                 "operation_status": "active",
                 "payment_cycle": "quarterly",
-                "payment_amount": 1350
+                "payment_amount": 1350,
+                "sections": [
+                  "66f2b3c4d5e6f7a8b9c0d1e2",
+                  "66f2b3c4d5e6f7a8b9c0d1e9"
+                ]
               }
             }
           }
@@ -1007,15 +900,27 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       },
       "delete": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Delete the client record only",
         "description": "Removes the Client document and deactivates its API keys. Does not delete Plesk subdomains, files, or the database. Use DELETE /full for a complete removal.",
         "operationId": "deleteClient",
@@ -1031,16 +936,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/provisioning-status": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Get provisioning status",
         "operationId": "clientProvisioningStatus",
         "responses": {
@@ -1062,16 +979,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/retry-provisioning": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Retry provisioning",
         "operationId": "retryProvisioning",
         "responses": {
@@ -1086,17 +1015,31 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/regenerate-api-key": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Regenerate the tenant API key",
         "description": "Revokes all previous keys. The raw key is returned once and is not stored.",
         "operationId": "regenerateApiKey",
@@ -1115,16 +1058,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/suspend": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Suspend a client",
         "operationId": "suspendClient",
         "responses": {
@@ -1145,16 +1100,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/activate": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Activate a client",
         "operationId": "activateClient",
         "responses": {
@@ -1175,16 +1142,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/rebuild-frontend": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Rebuild and redeploy the client frontend",
         "operationId": "rebuildFrontend",
         "responses": {
@@ -1199,17 +1178,31 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/logs": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Read the tenant backend startup log",
         "operationId": "clientLogs",
         "responses": {
@@ -1229,16 +1222,28 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/reset-admin-password": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Reset the tenant admin password",
         "description": "Updates the password_hash of the admin user inside the tenant database.",
         "operationId": "resetTenantAdminPassword",
@@ -1246,7 +1251,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ResetPasswordRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              },
               "example": {
                 "new_password": "NewSecret@123"
               }
@@ -1265,17 +1272,31 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/ssl/install": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Install Let's Encrypt SSL for the client subdomains",
         "operationId": "installClientSsl",
         "responses": {
@@ -1288,25 +1309,45 @@
                   "message": "SSL install attempted",
                   "data": {
                     "results": [
-                      { "subdomain": "acme.wegz.org", "success": true },
-                      { "subdomain": "api-acme.wegz.org", "success": true }
+                      {
+                        "subdomain": "acme.wegz.org",
+                        "success": true
+                      },
+                      {
+                        "subdomain": "api-acme.wegz.org",
+                        "success": true
+                      }
                     ]
                   }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/clients/{id}/full": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "delete": {
-        "tags": ["Clients"],
+        "tags": [
+          "Clients"
+        ],
         "summary": "Full delete (Plesk + DB + files + keys + record)",
         "description": "Dangerous and irreversible.",
         "operationId": "deleteClientFull",
@@ -1322,38 +1363,96 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/sales": {
       "get": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "List sales",
         "operationId": "listSales",
         "parameters": [
-          { "name": "client_id", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "client_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "status",
             "in": "query",
-            "schema": { "type": "string", "enum": ["pending", "paid", "cancelled", "refunded"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "paid",
+                "cancelled",
+                "refunded"
+              ]
+            }
           },
           {
             "name": "cycle",
             "in": "query",
-            "schema": { "type": "string", "enum": ["monthly", "quarterly", "half_yearly", "yearly", "custom"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "monthly",
+                "quarterly",
+                "half_yearly",
+                "yearly",
+                "custom"
+              ]
+            }
           },
-          { "name": "sales_agent_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "$ref": "#/components/parameters/Page" },
-          { "$ref": "#/components/parameters/Limit" },
+          {
+            "name": "sales_agent_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
           {
             "name": "sort",
             "in": "query",
-            "schema": { "type": "string", "default": "-sale_date" }
+            "schema": {
+              "type": "string",
+              "default": "-sale_date"
+            }
           }
         ],
         "responses": {
@@ -1401,19 +1500,27 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "Create a sale",
         "operationId": "createSale",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SaleCreateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/SaleCreateRequest"
+              },
               "example": {
                 "client_id": "66f3c4d5e6f7a8b9c0d1e2f3",
                 "amount": 1000,
@@ -1455,21 +1562,45 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/sales/stats": {
       "get": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "Sales statistics",
         "operationId": "salesStats",
         "parameters": [
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -1480,16 +1611,39 @@
                   "success": true,
                   "message": "Sales stats retrieved",
                   "data": {
-                    "totals": { "count": 12, "amount": 12000, "discount": 500, "total": 11500 },
+                    "totals": {
+                      "count": 12,
+                      "amount": 12000,
+                      "discount": 500,
+                      "total": 11500
+                    },
                     "by_status": [
-                      { "_id": "paid", "count": 8, "total": 8000 },
-                      { "_id": "pending", "count": 4, "total": 3500 }
+                      {
+                        "_id": "paid",
+                        "count": 8,
+                        "total": 8000
+                      },
+                      {
+                        "_id": "pending",
+                        "count": 4,
+                        "total": 3500
+                      }
                     ],
                     "by_sales_agent": [
-                      { "sales_agent_id": "66f1a2b3c4d5e6f7a8b9c0d2", "name": "Sales Agent", "count": 12, "total": 11500 }
+                      {
+                        "sales_agent_id": "66f1a2b3c4d5e6f7a8b9c0d2",
+                        "name": "Sales Agent",
+                        "count": 12,
+                        "total": 11500
+                      }
                     ],
                     "monthly": [
-                      { "year": 2026, "month": 10, "count": 12, "total": 11500 }
+                      {
+                        "year": 2026,
+                        "month": 10,
+                        "count": 12,
+                        "total": 11500
+                      }
                     ],
                     "currency": "EGP"
                   }
@@ -1497,15 +1651,25 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/sales/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "Get a sale",
         "operationId": "getSale",
         "responses": {
@@ -1530,20 +1694,30 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "patch": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "Update a sale",
         "operationId": "updateSale",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SaleUpdateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/SaleUpdateRequest"
+              },
               "example": {
                 "amount": 1200,
                 "discount": 200,
@@ -1573,14 +1747,24 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "delete": {
-        "tags": ["Sales"],
+        "tags": [
+          "Sales"
+        ],
         "summary": "Delete a sale",
         "operationId": "deleteSale",
         "responses": {
@@ -1588,38 +1772,96 @@
             "description": "Sale deleted",
             "content": {
               "application/json": {
-                "example": { "success": true, "message": "Sale deleted" }
+                "example": {
+                  "success": true,
+                  "message": "Sale deleted"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/payments": {
       "get": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "List payments",
         "operationId": "listPayments",
         "parameters": [
-          { "name": "client_id", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "client_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "status",
             "in": "query",
-            "schema": { "type": "string", "enum": ["pending", "approve", "reject"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approve",
+                "reject"
+              ]
+            }
           },
           {
             "name": "method",
             "in": "query",
-            "schema": { "type": "string", "enum": ["cash", "bank_transfer", "card", "cheque", "online", "other"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cash",
+                "bank_transfer",
+                "card",
+                "cheque",
+                "online",
+                "other"
+              ]
+            }
           },
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "search", "in": "query", "schema": { "type": "string" } },
-          { "$ref": "#/components/parameters/Page" },
-          { "$ref": "#/components/parameters/Limit" }
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
         ],
         "responses": {
           "200": {
@@ -1652,28 +1894,45 @@
                       }
                     ],
                     "summary": [
-                      { "_id": "pending", "count": 1, "total": 500 }
+                      {
+                        "_id": "pending",
+                        "count": 1,
+                        "total": 500
+                      }
                     ],
                     "currency": "EGP",
-                    "pagination": { "total": 1, "page": 1, "limit": 20, "pages": 1 }
+                    "pagination": {
+                      "total": 1,
+                      "page": 1,
+                      "limit": 20,
+                      "pages": 1
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "Create a payment (admin)",
         "operationId": "createPayment",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PaymentCreateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreateRequest"
+              },
               "example": {
                 "client_id": "66f3c4d5e6f7a8b9c0d1e2f3",
                 "sale_id": "66f4d5e6f7a8b9c0d1e2f3a4",
@@ -1712,17 +1971,31 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/payments/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "Get a payment",
         "operationId": "getPayment",
         "responses": {
@@ -1747,13 +2020,21 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "delete": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "Delete a payment (not allowed for approved payments)",
         "operationId": "deletePayment",
         "responses": {
@@ -1761,21 +2042,38 @@
             "description": "Payment deleted",
             "content": {
               "application/json": {
-                "example": { "success": true, "message": "Payment deleted" }
+                "example": {
+                  "success": true,
+                  "message": "Payment deleted"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/payments/{id}/approve": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "Approve a payment",
         "description": "Marks the payment approved, activates the client if it was pending (suspended stays suspended), updates payment_amount/payment_cycle/last_payment_date, and marks the linked sale as paid.",
         "operationId": "approvePayment",
@@ -1805,25 +2103,43 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/payments/{id}/reject": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Payments"],
+        "tags": [
+          "Payments"
+        ],
         "summary": "Reject a payment",
         "operationId": "rejectPayment",
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PaymentRejectRequest" },
-              "example": { "reason": "Receipt does not match the amount" }
+              "schema": {
+                "$ref": "#/components/schemas/PaymentRejectRequest"
+              },
+              "example": {
+                "reason": "Receipt does not match the amount"
+              }
             }
           }
         },
@@ -1846,16 +2162,26 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/reports/operations": {
       "get": {
-        "tags": ["Reports"],
+        "tags": [
+          "Reports"
+        ],
         "summary": "Operation report for all clients",
         "operationId": "operationReports",
         "responses": {
@@ -1875,30 +2201,53 @@
                         "subdomain": "acme",
                         "status": "active",
                         "operation_status": "active",
-                        "category_id": { "_id": "66f2b3c4d5e6f7a8b9c0d1e2", "name": "Restaurants" },
-                        "subcategory_id": { "_id": "66f2b3c4d5e6f7a8b9c0d1e3", "name": "Cafes" },
-                        "sales_agent_id": { "_id": "66f1a2b3c4d5e6f7a8b9c0d2", "name": "Sales Agent", "email": "sales1@wegz.org" },
+                        "sales_agent_id": {
+                          "_id": "66f1a2b3c4d5e6f7a8b9c0d2",
+                          "name": "Sales Agent",
+                          "email": "sales1@wegz.org"
+                        },
                         "total_paid": 1500,
                         "payments_count": 3,
                         "pending_amount": 500,
                         "pending_count": 1,
-                        "last_payment_date": "2026-10-15T12:00:00.000Z"
+                        "last_payment_date": "2026-10-15T12:00:00.000Z",
+                        "sections": [
+                          {
+                            "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                            "key": "hero",
+                            "name": "Hero",
+                            "ar_name": "الهيرو"
+                          }
+                        ],
+                        "sections_count": 1,
+                        "total_sections": 8
                       }
-                    ]
+                    ],
+                    "total_sections": 8
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/reports/operations/{id}": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "get": {
-        "tags": ["Reports"],
+        "tags": [
+          "Reports"
+        ],
         "summary": "Operation report details for a client",
         "operationId": "operationReportDetails",
         "responses": {
@@ -1918,29 +2267,47 @@
                     },
                     "payments": [],
                     "sales": [],
-                    "totals": { "total_paid": 1500, "pending_amount": 500, "payments_count": 3 }
+                    "totals": {
+                      "total_paid": 1500,
+                      "pending_amount": 500,
+                      "payments_count": 3
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/reports/operations/{id}/status": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "patch": {
-        "tags": ["Reports"],
+        "tags": [
+          "Reports"
+        ],
         "summary": "Update client status or operation status",
         "operationId": "updateOperationStatus",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/OperationStatusUpdateRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/OperationStatusUpdateRequest"
+              },
               "example": {
                 "status": "active",
                 "operation_status": "active"
@@ -1967,25 +2334,43 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/reports/operations/{id}/notes": {
-      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
       "post": {
-        "tags": ["Reports"],
+        "tags": [
+          "Reports"
+        ],
         "summary": "Add a note to a client",
         "operationId": "addOperationNote",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/NoteCreateRequest" },
-              "example": { "text": "Client asked for an invoice copy." }
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreateRequest"
+              },
+              "example": {
+                "text": "Client asked for an invoice copy."
+              }
             }
           }
         },
@@ -2010,20 +2395,34 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/reports/operations/{id}/notes/{noteIndex}": {
       "parameters": [
-        { "$ref": "#/components/parameters/Id" },
-        { "$ref": "#/components/parameters/NoteIndex" }
+        {
+          "$ref": "#/components/parameters/Id"
+        },
+        {
+          "$ref": "#/components/parameters/NoteIndex"
+        }
       ],
       "delete": {
-        "tags": ["Reports"],
+        "tags": [
+          "Reports"
+        ],
         "summary": "Delete a note by index",
         "operationId": "deleteOperationNote",
         "responses": {
@@ -2034,21 +2433,31 @@
                 "example": {
                   "success": true,
                   "message": "Note deleted successfully",
-                  "data": { "notes": [] }
+                  "data": {
+                    "notes": []
+                  }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/admin/reports/clients": {
       "get": {
-        "tags": ["Reports"],
-        "summary": "Clients summary by status, category and operation status",
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Clients summary by status, section and operation status",
         "operationId": "clientsReport",
         "responses": {
           "200": {
@@ -2061,35 +2470,76 @@
                   "data": {
                     "total": 25,
                     "by_status": [
-                      { "_id": "active", "count": 20 },
-                      { "_id": "pending", "count": 3 },
-                      { "_id": "suspended", "count": 2 }
+                      {
+                        "_id": "active",
+                        "count": 20
+                      },
+                      {
+                        "_id": "pending",
+                        "count": 3
+                      },
+                      {
+                        "_id": "suspended",
+                        "count": 2
+                      }
                     ],
                     "by_operation_status": [
-                      { "_id": "active", "count": 18 },
-                      { "_id": "sales", "count": 7 }
+                      {
+                        "_id": "active",
+                        "count": 18
+                      },
+                      {
+                        "_id": "sales",
+                        "count": 7
+                      }
                     ],
-                    "by_category": [
-                      { "category_id": "66f2b3c4d5e6f7a8b9c0d1e2", "name": "Restaurants", "count": 15 }
-                    ]
+                    "by_section": [
+                      {
+                        "section_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "count": 15
+                      }
+                    ],
+                    "clients_without_sections": 2
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/financial-reports/summary": {
       "get": {
-        "tags": ["Financial Reports"],
+        "tags": [
+          "Financial Reports"
+        ],
         "summary": "Financial summary",
         "operationId": "financialSummary",
         "parameters": [
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -2101,33 +2551,76 @@
                   "message": "Financial summary retrieved",
                   "data": {
                     "currency": "EGP",
-                    "revenue": { "approved": 50000, "pending": 7500, "rejected": 1000, "total_invoiced": 57500 },
-                    "payments": { "approved_count": 40, "pending_count": 6, "rejected_count": 1, "average_payment": 1250 },
+                    "revenue": {
+                      "approved": 50000,
+                      "pending": 7500,
+                      "rejected": 1000,
+                      "total_invoiced": 57500
+                    },
+                    "payments": {
+                      "approved_count": 40,
+                      "pending_count": 6,
+                      "rejected_count": 1,
+                      "average_payment": 1250
+                    },
                     "collection_rate": 86.96,
                     "mrr_last_30_days": 12000,
                     "active_clients": 20,
                     "total_clients": 25,
-                    "pending_payments": { "count": 6, "total": 7500 },
-                    "range": { "from": null, "to": null }
+                    "pending_payments": {
+                      "count": 6,
+                      "total": 7500
+                    },
+                    "range": {
+                      "from": null,
+                      "to": null
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/financial-reports/monthly": {
       "get": {
-        "tags": ["Financial Reports"],
+        "tags": [
+          "Financial Reports"
+        ],
         "summary": "Monthly approved revenue",
         "operationId": "monthlyRevenue",
         "parameters": [
-          { "name": "year", "in": "query", "schema": { "type": "integer", "example": 2026 } },
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "example": 2026
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -2140,59 +2633,55 @@
                   "data": {
                     "currency": "EGP",
                     "months": [
-                      { "month": "2026-09", "count": 10, "total": 10000 },
-                      { "month": "2026-10", "count": 12, "total": 12000 }
+                      {
+                        "month": "2026-09",
+                        "count": 10,
+                        "total": 10000
+                      },
+                      {
+                        "month": "2026-10",
+                        "count": 12,
+                        "total": 12000
+                      }
                     ]
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
-        }
-      }
-    },
-    "/api/admin/financial-reports/by-category": {
-      "get": {
-        "tags": ["Financial Reports"],
-        "summary": "Approved revenue grouped by client category",
-        "operationId": "revenueByCategory",
-        "parameters": [
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Revenue by category",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Revenue by category retrieved",
-                  "data": {
-                    "currency": "EGP",
-                    "categories": [
-                      { "category_id": "66f2b3c4d5e6f7a8b9c0d1e2", "name": "Restaurants", "count": 20, "total": 25000 }
-                    ]
-                  }
-                }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/financial-reports/by-sales-agent": {
       "get": {
-        "tags": ["Financial Reports"],
+        "tags": [
+          "Financial Reports"
+        ],
         "summary": "Approved revenue grouped by sales agent",
         "operationId": "revenueBySalesAgent",
         "parameters": [
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -2205,21 +2694,32 @@
                   "data": {
                     "currency": "EGP",
                     "sales_agents": [
-                      { "sales_agent_id": "66f1a2b3c4d5e6f7a8b9c0d2", "name": "Sales Agent", "count": 15, "total": 18000 }
+                      {
+                        "sales_agent_id": "66f1a2b3c4d5e6f7a8b9c0d2",
+                        "name": "Sales Agent",
+                        "count": 15,
+                        "total": 18000
+                      }
                     ]
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/financial-reports/pending": {
       "get": {
-        "tags": ["Financial Reports"],
+        "tags": [
+          "Financial Reports"
+        ],
         "summary": "Pending payments with age in days",
         "operationId": "pendingPayments",
         "responses": {
@@ -2241,7 +2741,10 @@
                         "amount": 500,
                         "status": "pending",
                         "age_days": 3,
-                        "client_id": { "company_name": "Acme", "email": "owner@acme.com" }
+                        "client_id": {
+                          "company_name": "Acme",
+                          "email": "owner@acme.com"
+                        }
                       }
                     ]
                   }
@@ -2249,14 +2752,20 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/dashboard": {
       "get": {
-        "tags": ["Dashboard"],
+        "tags": [
+          "Dashboard"
+        ],
         "summary": "Dashboard KPIs",
         "operationId": "dashboard",
         "responses": {
@@ -2268,15 +2777,28 @@
                   "success": true,
                   "message": "Dashboard stats retrieved",
                   "data": {
-                    "clients": { "total": 25, "active": 20, "suspended": 2, "pending": 3, "failed_provisioning": 0 },
-                    "admins": { "total": 4 },
-                    "categories": { "total": 6 },
+                    "clients": {
+                      "total": 25,
+                      "active": 20,
+                      "suspended": 2,
+                      "pending": 3,
+                      "failed_provisioning": 0
+                    },
+                    "admins": {
+                      "total": 4
+                    },
                     "finance": {
                       "currency": "EGP",
                       "revenue_last_30_days": 12000,
-                      "pending_payments": { "count": 6, "total": 7500 }
+                      "pending_payments": {
+                        "count": 6,
+                        "total": 7500
+                      }
                     },
-                    "sales_last_30_days": { "count": 5, "total": 6000 },
+                    "sales_last_30_days": {
+                      "count": 5,
+                      "total": 6000
+                    },
                     "recent_clients": [
                       {
                         "_id": "66f3c4d5e6f7a8b9c0d1e2f3",
@@ -2287,19 +2809,26 @@
                         "createdAt": "2026-10-01T09:00:00.000Z"
                       }
                     ],
-                    "generated_at": "2026-10-20T10:00:00.000Z"
+                    "generated_at": "2026-10-20T10:00:00.000Z",
+                    "sections": {
+                      "total": 8
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       }
     },
     "/api/admin/diagnostics/mongo": {
       "get": {
-        "tags": ["Diagnostics"],
+        "tags": [
+          "Diagnostics"
+        ],
         "summary": "Check Plesk MongoDB connectivity (root only)",
         "description": "Connects using PLESK_MONGO_URI and lists databases. Use this after deployment to verify that tenant databases can be created on the Plesk server.",
         "operationId": "mongoDiagnostics",
@@ -2316,7 +2845,11 @@
                     "connected": true,
                     "latency_ms": 12,
                     "tenant_prefix": "sc_",
-                    "databases": ["SuperSystego", "SuperWegz", "sc_66f3c4d5e6f7a8b9c0d1e2f3"],
+                    "databases": [
+                      "SuperSystego",
+                      "SuperWegz",
+                      "sc_66f3c4d5e6f7a8b9c0d1e2f3"
+                    ],
                     "databases_error": null,
                     "error": null
                   }
@@ -2324,25 +2857,73 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/audit": {
       "get": {
-        "tags": ["Audit"],
+        "tags": [
+          "Audit"
+        ],
         "summary": "List audit logs",
         "operationId": "listAudit",
         "parameters": [
-          { "name": "admin_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "action", "in": "query", "schema": { "type": "string" } },
-          { "name": "target_type", "in": "query", "schema": { "type": "string" } },
-          { "name": "target_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "$ref": "#/components/parameters/Page" },
-          { "$ref": "#/components/parameters/Limit" }
+          {
+            "name": "admin_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
         ],
         "responses": {
           "200": {
@@ -2356,28 +2937,45 @@
                     "logs": [
                       {
                         "_id": "66f6a7b8c9d0e1f2a3b4c5d6",
-                        "admin_id": { "_id": "66f1a2b3c4d5e6f7a8b9c0d1", "name": "Super Admin", "email": "wegz@gmail.com" },
+                        "admin_id": {
+                          "_id": "66f1a2b3c4d5e6f7a8b9c0d1",
+                          "name": "Super Admin",
+                          "email": "wegz@gmail.com"
+                        },
                         "action": "client.create",
                         "targetType": "Client",
                         "targetId": "66f3c4d5e6f7a8b9c0d1e2f3",
-                        "metadata": { "email": "owner@acme.com" },
+                        "metadata": {
+                          "email": "owner@acme.com"
+                        },
                         "createdAt": "2026-10-20T10:00:00.000Z"
                       }
                     ],
-                    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+                    "pagination": {
+                      "page": 1,
+                      "limit": 20,
+                      "total": 1,
+                      "totalPages": 1
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/admin/audit/stats": {
       "get": {
-        "tags": ["Audit"],
+        "tags": [
+          "Audit"
+        ],
         "summary": "Audit statistics",
         "operationId": "auditStats",
         "responses": {
@@ -2391,25 +2989,38 @@
                   "data": {
                     "total_logs": 120,
                     "by_action": [
-                      { "_id": "client.create", "count": 20 }
+                      {
+                        "_id": "client.create",
+                        "count": 20
+                      }
                     ]
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/tenant/verify": {
       "get": {
-        "tags": ["Tenant"],
+        "tags": [
+          "Tenant"
+        ],
         "summary": "Verify tenant status",
         "description": "Called by the client backend with X-Tenant-Api-Key. active is true only when the client status is active. The client can still log in when inactive and submit a payment.",
         "operationId": "verifyTenant",
-        "security": [{ "tenantApiKey": [] }],
+        "security": [
+          {
+            "tenantApiKey": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Tenant info",
@@ -2426,25 +3037,47 @@
                       "db_name": "sc_66f3c4d5e6f7a8b9c0d1e2f3",
                       "status": "active",
                       "active": true,
-                      "category": "Restaurants",
-                      "subcategory": "Cafes"
+                      "sections": [
+                        {
+                          "id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                          "key": "hero",
+                          "name": "Hero",
+                          "ar_name": "الهيرو"
+                        },
+                        {
+                          "id": "66f2b3c4d5e6f7a8b9c0d1e9",
+                          "key": "footer",
+                          "name": "Footer",
+                          "ar_name": "الفوتر"
+                        }
+                      ]
                     }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/tenant/payments": {
       "get": {
-        "tags": ["Tenant"],
+        "tags": [
+          "Tenant"
+        ],
         "summary": "List the tenant's payments",
         "operationId": "tenantPayments",
-        "security": [{ "tenantApiKey": [] }],
+        "security": [
+          {
+            "tenantApiKey": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Payments",
@@ -2469,20 +3102,30 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
         }
       },
       "post": {
-        "tags": ["Tenant"],
+        "tags": [
+          "Tenant"
+        ],
         "summary": "Submit a payment (appears as pending in Super)",
         "description": "The client_id and status are taken from the API key and are not accepted from the body.",
         "operationId": "submitTenantPayment",
-        "security": [{ "tenantApiKey": [] }],
+        "security": [
+          {
+            "tenantApiKey": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TenantPaymentRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/TenantPaymentRequest"
+              },
               "example": {
                 "amount": 500,
                 "method": "bank_transfer",
@@ -2515,10 +3158,591 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
+      }
+    },
+    "/api/admin/sections": {
+      "get": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "List sections",
+        "operationId": "listSections",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "with_counts",
+            "in": "query",
+            "description": "true/1 adds clients_count to each section.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "1",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sections",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Sections retrieved",
+                  "data": {
+                    "sections": [
+                      {
+                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "ar_name": "الهيرو",
+                        "description": "Main hero block",
+                        "status": "active",
+                        "order": 1,
+                        "createdAt": "2026-10-01T10:00:00.000Z",
+                        "updatedAt": "2026-10-01T10:00:00.000Z",
+                        "clients_count": 12
+                      }
+                    ],
+                    "total": 1
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "Create a section",
+        "operationId": "createSection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionCreateRequest"
+              },
+              "example": {
+                "name": "Hero",
+                "key": "hero",
+                "ar_name": "الهيرو",
+                "description": "Main hero block",
+                "status": "active",
+                "order": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Section created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Section created",
+                  "data": {
+                    "section": {
+                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                      "key": "hero",
+                      "name": "Hero",
+                      "ar_name": "الهيرو",
+                      "description": "Main hero block",
+                      "status": "active",
+                      "order": 1,
+                      "createdAt": "2026-10-01T10:00:00.000Z",
+                      "updatedAt": "2026-10-01T10:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/sections/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "Get a section with its clients count",
+        "operationId": "getSection",
+        "parameters": [
+          {
+            "name": "include_clients",
+            "in": "query",
+            "description": "true/1 also returns the clients that use this section.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "1",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Section details",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Section retrieved",
+                  "data": {
+                    "section": {
+                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                      "key": "hero",
+                      "name": "Hero",
+                      "ar_name": "الهيرو",
+                      "description": "Main hero block",
+                      "status": "active",
+                      "order": 1,
+                      "createdAt": "2026-10-01T10:00:00.000Z",
+                      "updatedAt": "2026-10-01T10:00:00.000Z"
+                    },
+                    "clients_count": 12
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "Update a section",
+        "operationId": "updateSection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionUpdateRequest"
+              },
+              "example": {
+                "name": "Hero Section",
+                "status": "active",
+                "order": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Section updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Section updated",
+                  "data": {
+                    "section": {
+                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                      "key": "hero",
+                      "name": "Hero",
+                      "ar_name": "الهيرو",
+                      "description": "Main hero block",
+                      "status": "active",
+                      "order": 1,
+                      "createdAt": "2026-10-01T10:00:00.000Z",
+                      "updatedAt": "2026-10-01T10:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "Delete a section",
+        "description": "Fails with 409 if clients use it. Pass force=true to remove it from those clients first.",
+        "operationId": "deleteSection",
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "description": "true/1 removes the section from all clients then deletes it.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "1",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Section deleted",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Section deleted",
+                  "data": {
+                    "clients_affected": 12
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/sections/{id}/clients": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Sections"
+        ],
+        "summary": "List clients that use a section",
+        "operationId": "listSectionClients",
+        "responses": {
+          "200": {
+            "description": "Clients of the section",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Section clients retrieved",
+                  "data": {
+                    "section": {
+                      "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                      "key": "hero",
+                      "name": "Hero",
+                      "ar_name": "الهيرو",
+                      "description": "Main hero block",
+                      "status": "active",
+                      "order": 1,
+                      "createdAt": "2026-10-01T10:00:00.000Z",
+                      "updatedAt": "2026-10-01T10:00:00.000Z"
+                    },
+                    "clients": [
+                      {
+                        "_id": "66f3c4d5e6f7a8b9c0d1e2f3",
+                        "company_name": "Acme",
+                        "email": "owner@acme.com",
+                        "subdomain": "acme",
+                        "status": "active",
+                        "sections": [
+                          {
+                            "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                            "key": "hero",
+                            "name": "Hero",
+                            "ar_name": "الهيرو"
+                          }
+                        ]
+                      }
+                    ],
+                    "count": 1
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/clients/{id}/sections": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Get the sections assigned to a client",
+        "operationId": "getClientSections",
+        "responses": {
+          "200": {
+            "description": "Client sections",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Client sections retrieved",
+                  "data": {
+                    "client_id": "66f3c4d5e6f7a8b9c0d1e2f3",
+                    "company_name": "Acme",
+                    "sections": [
+                      {
+                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "ar_name": "الهيرو"
+                      },
+                      {
+                        "_id": "66f2b3c4d5e6f7a8b9c0d1e9",
+                        "key": "footer",
+                        "name": "Footer",
+                        "ar_name": "الفوتر"
+                      }
+                    ],
+                    "sections_count": 2,
+                    "total_sections": 8
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Replace the sections assigned to a client",
+        "operationId": "setClientSections",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientSectionsRequest"
+              },
+              "example": {
+                "sections": [
+                  "66f2b3c4d5e6f7a8b9c0d1e2",
+                  "66f2b3c4d5e6f7a8b9c0d1e9"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Client sections updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Client sections updated",
+                  "data": {
+                    "sections": [
+                      {
+                        "_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "ar_name": "الهيرو"
+                      },
+                      {
+                        "_id": "66f2b3c4d5e6f7a8b9c0d1e9",
+                        "key": "footer",
+                        "name": "Footer",
+                        "ar_name": "الفوتر"
+                      }
+                    ],
+                    "sections_count": 2,
+                    "total_sections": 8
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/financial-reports/by-section": {
+      "get": {
+        "tags": [
+          "Financial Reports"
+        ],
+        "summary": "Approved revenue grouped by section",
+        "operationId": "revenueBySection",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revenue by section",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Revenue by section retrieved",
+                  "data": {
+                    "currency": "EGP",
+                    "sections": [
+                      {
+                        "section_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "clients_count": 10,
+                        "payments_count": 20,
+                        "total": 25000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "A client assigned to multiple sections is counted in each of them, so rows overlap and do not sum to total revenue."
       }
     }
   },
@@ -2540,23 +3764,37 @@
         "name": "id",
         "in": "path",
         "required": true,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "NoteIndex": {
         "name": "noteIndex",
         "in": "path",
         "required": true,
-        "schema": { "type": "integer", "minimum": 0 }
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "Page": {
         "name": "page",
         "in": "query",
-        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
       },
       "Limit": {
         "name": "limit",
         "in": "query",
-        "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 20 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 20
+        }
       }
     },
     "responses": {
@@ -2564,7 +3802,10 @@
         "description": "Bad request",
         "content": {
           "application/json": {
-            "example": { "success": false, "message": "Validation error" }
+            "example": {
+              "success": false,
+              "message": "Validation error"
+            }
           }
         }
       },
@@ -2572,7 +3813,10 @@
         "description": "Missing or invalid token",
         "content": {
           "application/json": {
-            "example": { "success": false, "message": "Not authorized" }
+            "example": {
+              "success": false,
+              "message": "Not authorized"
+            }
           }
         }
       },
@@ -2580,7 +3824,10 @@
         "description": "Missing permission",
         "content": {
           "application/json": {
-            "example": { "success": false, "message": "Forbidden: missing permission" }
+            "example": {
+              "success": false,
+              "message": "Forbidden: missing permission"
+            }
           }
         }
       },
@@ -2588,7 +3835,10 @@
         "description": "Resource not found",
         "content": {
           "application/json": {
-            "example": { "success": false, "message": "Not found" }
+            "example": {
+              "success": false,
+              "message": "Not found"
+            }
           }
         }
       },
@@ -2596,7 +3846,10 @@
         "description": "Conflict",
         "content": {
           "application/json": {
-            "example": { "success": false, "message": "Already exists" }
+            "example": {
+              "success": false,
+              "message": "Already exists"
+            }
           }
         }
       }
@@ -2604,37 +3857,77 @@
     "schemas": {
       "LoginRequest": {
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 1 }
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "AdminCreateRequest": {
         "type": "object",
-        "required": ["name", "email", "password"],
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 6 }
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          }
         }
       },
       "AdminUpdateRequest": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 6 },
-          "status": { "type": "string", "enum": ["active", "inactive", "suspended"] }
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
         }
       },
       "PermissionsUpdateRequest": {
         "type": "object",
-        "required": ["permissions"],
+        "required": [
+          "permissions"
+        ],
         "properties": {
           "permissions": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Permission" }
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
           }
         }
       },
@@ -2645,10 +3938,10 @@
           "clients:create",
           "clients:update",
           "clients:delete",
-          "categories:read",
-          "categories:create",
-          "categories:update",
-          "categories:delete",
+          "sections:read",
+          "sections:create",
+          "sections:update",
+          "sections:delete",
           "sales:read",
           "sales:create",
           "sales:update",
@@ -2668,210 +3961,498 @@
           "provisioning:run"
         ]
       },
-      "CategoryCreateRequest": {
-        "type": "object",
-        "required": ["name"],
-        "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "parent_id": { "type": "string", "nullable": true },
-          "status": { "type": "string", "enum": ["active", "inactive"], "default": "active" },
-          "order": { "type": "integer", "default": 0 },
-          "slug": { "type": "string" }
-        }
-      },
-      "CategoryUpdateRequest": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "parent_id": { "type": "string", "nullable": true },
-          "status": { "type": "string", "enum": ["active", "inactive"] },
-          "order": { "type": "integer" },
-          "slug": { "type": "string" }
-        }
-      },
-      "SubcategoryCreateRequest": {
-        "type": "object",
-        "required": ["name"],
-        "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "status": { "type": "string", "enum": ["active", "inactive"], "default": "active" },
-          "order": { "type": "integer", "default": 0 },
-          "slug": { "type": "string" }
-        }
-      },
       "ClientCreateRequest": {
         "type": "object",
-        "required": ["company_name", "email", "password", "subdomain"],
+        "required": [
+          "company_name",
+          "email",
+          "password",
+          "subdomain"
+        ],
         "properties": {
-          "company_name": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 6 },
-          "subdomain": { "type": "string", "description": "Lowercase letters, numbers and hyphens." },
-          "logoBase64": { "type": "string" },
-          "category_id": { "type": "string" },
-          "subcategory_id": { "type": "string" },
-          "sales_agent_id": { "type": "string" },
-          "sales_man_name": { "type": "string" },
-          "sales_man_phone": { "type": "string" },
+          "company_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "subdomain": {
+            "type": "string",
+            "description": "Lowercase letters, numbers and hyphens."
+          },
+          "logoBase64": {
+            "type": "string"
+          },
+          "sales_agent_id": {
+            "type": "string"
+          },
+          "sales_man_name": {
+            "type": "string"
+          },
+          "sales_man_phone": {
+            "type": "string"
+          },
           "operation_status": {
             "type": "string",
-            "enum": ["sales", "active", "inactive", "suspended"]
+            "enum": [
+              "sales",
+              "active",
+              "inactive",
+              "suspended"
+            ]
           },
           "payment_cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly"]
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly"
+            ]
           },
-          "payment_amount": { "type": "number", "minimum": 0 }
+          "payment_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sections": {
+            "type": "array",
+            "description": "Section ids assigned to the client.",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "ClientUpdateRequest": {
         "type": "object",
         "properties": {
-          "company_name": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "minLength": 6 },
-          "logoBase64": { "type": "string" },
-          "category_id": { "type": "string" },
-          "subcategory_id": { "type": "string" },
-          "sales_agent_id": { "type": "string" },
-          "sales_man_name": { "type": "string" },
-          "sales_man_phone": { "type": "string" },
+          "company_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "logoBase64": {
+            "type": "string"
+          },
+          "sales_agent_id": {
+            "type": "string"
+          },
+          "sales_man_name": {
+            "type": "string"
+          },
+          "sales_man_phone": {
+            "type": "string"
+          },
           "operation_status": {
             "type": "string",
-            "enum": ["sales", "active", "inactive", "suspended"]
+            "enum": [
+              "sales",
+              "active",
+              "inactive",
+              "suspended"
+            ]
           },
           "status": {
             "type": "string",
-            "enum": ["active", "suspended", "pending"]
+            "enum": [
+              "active",
+              "suspended",
+              "pending"
+            ]
           },
           "payment_cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly"]
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly"
+            ]
           },
-          "payment_amount": { "type": "number", "minimum": 0 }
+          "payment_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sections": {
+            "type": "array",
+            "description": "Section ids assigned to the client.",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "SaleCreateRequest": {
         "type": "object",
-        "required": ["client_id", "amount"],
+        "required": [
+          "client_id",
+          "amount"
+        ],
         "properties": {
-          "client_id": { "type": "string" },
-          "amount": { "type": "number", "minimum": 0 },
-          "discount": { "type": "number", "minimum": 0, "default": 0 },
-          "currency": { "type": "string", "default": "EGP" },
+          "client_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discount": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          },
+          "currency": {
+            "type": "string",
+            "default": "EGP"
+          },
           "cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly", "custom"],
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly",
+              "custom"
+            ],
             "default": "monthly"
           },
-          "sale_date": { "type": "string", "format": "date-time" },
+          "sale_date": {
+            "type": "string",
+            "format": "date-time"
+          },
           "status": {
             "type": "string",
-            "enum": ["pending", "paid", "cancelled", "refunded"],
+            "enum": [
+              "pending",
+              "paid",
+              "cancelled",
+              "refunded"
+            ],
             "default": "pending"
           },
-          "sales_agent_id": { "type": "string" },
-          "sales_agent_name": { "type": "string" },
-          "sales_agent_phone": { "type": "string" },
-          "notes": { "type": "string" }
+          "sales_agent_id": {
+            "type": "string"
+          },
+          "sales_agent_name": {
+            "type": "string"
+          },
+          "sales_agent_phone": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
         }
       },
       "SaleUpdateRequest": {
         "type": "object",
         "properties": {
-          "amount": { "type": "number", "minimum": 0 },
-          "discount": { "type": "number", "minimum": 0 },
-          "currency": { "type": "string" },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
           "cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly", "custom"]
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly",
+              "custom"
+            ]
           },
-          "sale_date": { "type": "string", "format": "date-time" },
+          "sale_date": {
+            "type": "string",
+            "format": "date-time"
+          },
           "status": {
             "type": "string",
-            "enum": ["pending", "paid", "cancelled", "refunded"]
+            "enum": [
+              "pending",
+              "paid",
+              "cancelled",
+              "refunded"
+            ]
           },
-          "sales_agent_id": { "type": "string" },
-          "sales_agent_name": { "type": "string" },
-          "sales_agent_phone": { "type": "string" },
-          "notes": { "type": "string" }
+          "sales_agent_id": {
+            "type": "string"
+          },
+          "sales_agent_name": {
+            "type": "string"
+          },
+          "sales_agent_phone": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
         }
       },
       "PaymentCreateRequest": {
         "type": "object",
-        "required": ["client_id", "amount"],
+        "required": [
+          "client_id",
+          "amount"
+        ],
         "properties": {
-          "client_id": { "type": "string" },
-          "sale_id": { "type": "string" },
-          "amount": { "type": "number", "minimum": 0 },
-          "currency": { "type": "string", "default": "EGP" },
-          "date": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["pending", "approve", "reject"], "default": "pending" },
+          "client_id": {
+            "type": "string"
+          },
+          "sale_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "default": "EGP"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approve",
+              "reject"
+            ],
+            "default": "pending"
+          },
           "method": {
             "type": "string",
-            "enum": ["cash", "bank_transfer", "card", "cheque", "online", "other"],
+            "enum": [
+              "cash",
+              "bank_transfer",
+              "card",
+              "cheque",
+              "online",
+              "other"
+            ],
             "default": "bank_transfer"
           },
           "payment_cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly"]
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly"
+            ]
           },
-          "reference": { "type": "string" },
-          "screenshot": { "type": "string" },
-          "notes": { "type": "string" }
+          "reference": {
+            "type": "string"
+          },
+          "screenshot": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
         }
       },
       "PaymentRejectRequest": {
         "type": "object",
         "properties": {
-          "reason": { "type": "string" }
+          "reason": {
+            "type": "string"
+          }
         }
       },
       "ResetPasswordRequest": {
         "type": "object",
-        "required": ["new_password"],
+        "required": [
+          "new_password"
+        ],
         "properties": {
-          "new_password": { "type": "string", "minLength": 6 }
+          "new_password": {
+            "type": "string",
+            "minLength": 6
+          }
         }
       },
       "OperationStatusUpdateRequest": {
         "type": "object",
         "properties": {
-          "status": { "type": "string", "enum": ["active", "suspended", "pending"] },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "pending"
+            ]
+          },
           "operation_status": {
             "type": "string",
-            "enum": ["sales", "active", "inactive", "suspended"]
+            "enum": [
+              "sales",
+              "active",
+              "inactive",
+              "suspended"
+            ]
           }
         }
       },
       "NoteCreateRequest": {
         "type": "object",
-        "required": ["text"],
+        "required": [
+          "text"
+        ],
         "properties": {
-          "text": { "type": "string" }
+          "text": {
+            "type": "string"
+          }
         }
       },
       "TenantPaymentRequest": {
         "type": "object",
-        "required": ["amount"],
+        "required": [
+          "amount"
+        ],
         "properties": {
-          "amount": { "type": "number", "minimum": 0.01 },
-          "currency": { "type": "string", "default": "EGP" },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "default": "EGP"
+          },
           "method": {
             "type": "string",
-            "enum": ["cash", "bank_transfer", "card", "cheque", "online", "other"],
+            "enum": [
+              "cash",
+              "bank_transfer",
+              "card",
+              "cheque",
+              "online",
+              "other"
+            ],
             "default": "bank_transfer"
           },
           "payment_cycle": {
             "type": "string",
-            "enum": ["monthly", "quarterly", "half_yearly", "yearly"]
+            "enum": [
+              "monthly",
+              "quarterly",
+              "half_yearly",
+              "yearly"
+            ]
           },
-          "reference": { "type": "string" },
-          "screenshot": { "type": "string" },
-          "notes": { "type": "string" }
+          "reference": {
+            "type": "string"
+          },
+          "screenshot": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "SectionCreateRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Hero"
+          },
+          "key": {
+            "type": "string",
+            "description": "Unique key; auto-generated from name when omitted.",
+            "example": "hero"
+          },
+          "ar_name": {
+            "type": "string",
+            "example": "الهيرو"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          },
+          "order": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      },
+      "SectionUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "ar_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "order": {
+            "type": "integer"
+          }
+        }
+      },
+      "ClientSectionsRequest": {
+        "type": "object",
+        "required": [
+          "sections"
+        ],
+        "properties": {
+          "sections": {
+            "type": "array",
+            "description": "Section ids assigned to the client. Empty array clears them.",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
     }
