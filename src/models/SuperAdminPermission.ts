@@ -1,74 +1,135 @@
 import mongoose, { Schema } from "mongoose";
 import type { Document, Types } from "mongoose";
 
-/**
- * قائمة الصلاحيات المتاحة في النظام.
- * أي إضافة هنا لازم تنعكس في الـ middleware والمستخدمين.
- */
-export const PERMISSIONS = [
-  // ---- Clients ----
-  "clients:read",
-  "clients:create",
-  "clients:update",
-  "clients:delete",
+// ============================================================================
+// Actions — 4 بس
+// ============================================================================
 
-  // ---- Sections ----
-  "sections:read",
-  "sections:create",
-  "sections:update",
-  "sections:delete",
+export const ACTIONS = ["view", "add", "edit", "delete"] as const;
+export type Action = (typeof ACTIONS)[number];
 
-  // ---- Categories (deprecated — kept for old permission records) ----
-  "categories:read",
-  "categories:create",
-  "categories:update",
-  "categories:delete",
+export const ACTION_LABELS: Record<Action, { en: string; ar: string }> = {
+  view: { en: "View", ar: "عرض" },
+  add: { en: "Add", ar: "إضافة" },
+  edit: { en: "Edit", ar: "تعديل" },
+  delete: { en: "Delete", ar: "حذف" },
+};
 
-  // ---- Sales ----
-  "sales:read",
-  "sales:create",
-  "sales:update",
-  "sales:delete",
+// ============================================================================
+// Resources
+// ============================================================================
 
-  // ---- Payments ----
-  "payments:read",
-  "payments:create",
-  "payments:approve",
-  "payments:delete",
+export interface ResourceDefinition {
+  key: string;
+  label_en: string;
+  label_ar: string;
+  actions: readonly Action[];
+  deprecated?: boolean;
+}
 
-  // ---- Reports ----
-  "reports:read",
-  "financial_reports:read",
-
-  // ---- Admins Management ----
-  "admins:read",
-  "admins:create",
-  "admins:update",
-  "admins:delete",
-  /** ← ده اللي بيسمح بتعديل صلاحيات باقي الـ Admins (Root فقط) */
-  "admins:update_permissions",
-
-  // ---- Audit ----
-  "audit:read",
-
-  // ---- Provisioning ----
-  "provisioning:run",
+export const RESOURCES: readonly ResourceDefinition[] = [
+  {
+    key: "clients",
+    label_en: "Clients",
+    label_ar: "العملاء",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "sections",
+    label_en: "Sections",
+    label_ar: "الأقسام",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "sales",
+    label_en: "Sales",
+    label_ar: "المبيعات",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "payments",
+    label_en: "Payments",
+    label_ar: "المدفوعات",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "reports",
+    label_en: "Operation Reports",
+    label_ar: "تقارير التشغيل",
+    actions: ["view"],
+  },
+  {
+    key: "financial_reports",
+    label_en: "Financial Reports",
+    label_ar: "التقارير المالية",
+    actions: ["view"],
+  },
+  {
+    key: "admins",
+    label_en: "Super Admins",
+    label_ar: "المشرفين",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "audit",
+    label_en: "Audit Logs",
+    label_ar: "سجل التدقيق",
+    actions: ["view"],
+  },
+  {
+    key: "provisioning",
+    label_en: "Provisioning",
+    label_ar: "التجهيز",
+    actions: ["add"],
+  },
+  {
+    key: "dashboard",
+    label_en: "Dashboard",
+    label_ar: "لوحة التحكم",
+    actions: ["view"],
+  },
 ] as const;
+
+// ============================================================================
+// Permissions (flat — derived)
+// ============================================================================
+
+export const PERMISSIONS = RESOURCES.flatMap((r) =>
+  r.actions.map((a) => `${r.key}:${a}` as const),
+);
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** صلاحيات قديمة (Categories) — متبقية فقط عشان السجلات القديمة متكسرش */
-export const DEPRECATED_PERMISSIONS: string[] = [
-  "categories:read",
-  "categories:create",
-  "categories:update",
-  "categories:delete",
-];
+export const DEPRECATED_PERMISSIONS: string[] = RESOURCES.filter(
+  (r) => r.deprecated,
+).flatMap((r) => r.actions.map((a) => `${r.key}:${a}`));
 
-/** الصلاحيات المعروضة في الكتالوج والقابلة للتعيين حاليًا */
 export const ACTIVE_PERMISSIONS = PERMISSIONS.filter(
-  (permission) => !DEPRECATED_PERMISSIONS.includes(permission),
+  (p) => !DEPRECATED_PERMISSIONS.includes(p),
 );
+
+// ============================================================================
+// Catalog builder (للـ frontend matrix)
+// ============================================================================
+
+export function buildPermissionsCatalog() {
+  return RESOURCES.filter((r) => !r.deprecated).map((r) => ({
+    key: r.key,
+    label_en: r.label_en,
+    label_ar: r.label_ar,
+    actions: r.actions.map((a) => ({
+      key: a,
+      label_en: ACTION_LABELS[a].en,
+      label_ar: ACTION_LABELS[a].ar,
+      permission: `${r.key}:${a}` as Permission,
+    })),
+    permissions: r.actions.map((a) => `${r.key}:${a}` as Permission),
+  }));
+}
+
+// ============================================================================
+// Mongoose schema
+// ============================================================================
 
 export interface ISuperAdminPermission extends Document {
   _id: Types.ObjectId;

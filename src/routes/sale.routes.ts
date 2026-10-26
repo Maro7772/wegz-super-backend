@@ -14,11 +14,11 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/stats", requirePermission("sales:read"), getSalesStats);
-router.get("/", requirePermission("sales:read"), listSales);
-router.post("/", requirePermission("sales:create"), createSale);
-router.get("/:id", requirePermission("sales:read"), getSaleById);
-router.patch("/:id", requirePermission("sales:update"), updateSale);
+router.get("/stats", requirePermission("sales:view"), getSalesStats);
+router.get("/", requirePermission("sales:view"), listSales);
+router.post("/", requirePermission("sales:add"), createSale);
+router.get("/:id", requirePermission("sales:view"), getSaleById);
+router.patch("/:id", requirePermission("sales:edit"), updateSale);
 router.delete("/:id", requirePermission("sales:delete"), deleteSale);
 
 export default router;

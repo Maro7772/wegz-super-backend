@@ -14,17 +14,17 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/", requirePermission("payments:read"), listPayments);
-router.post("/", requirePermission("payments:create"), createPayment);
-router.get("/:id", requirePermission("payments:read"), getPaymentById);
+router.get("/", requirePermission("payments:view"), listPayments);
+router.post("/", requirePermission("payments:add"), createPayment);
+router.get("/:id", requirePermission("payments:view"), getPaymentById);
 router.post(
   "/:id/approve",
-  requirePermission("payments:approve"),
+  requirePermission("payments:edit"), // ← كان payments:approve
   approvePayment,
 );
 router.post(
   "/:id/reject",
-  requirePermission("payments:approve"),
+  requirePermission("payments:edit"), // ← كان payments:approve
   rejectPayment,
 );
 router.delete("/:id", requirePermission("payments:delete"), deletePayment);

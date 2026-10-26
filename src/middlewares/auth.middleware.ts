@@ -3,8 +3,11 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { UnauthorizedError } from "../utils/errors";
 import { SuperAdminModel } from "../models/SuperAdmin";
-import { SuperAdminPermissionModel } from "../models/SuperAdminPermission";
-import type { Permission } from "../models/SuperAdminPermission";
+import {
+  SuperAdminPermissionModel,
+  ACTIVE_PERMISSIONS,
+  type Permission,
+} from "../models/SuperAdminPermission";
 
 export interface AuthRequest extends Request {
   admin?: {
@@ -36,12 +39,10 @@ export async function authenticate(
       return next(new UnauthorizedError("Admin not found or inactive"));
     }
 
-    // الـ Root عنده كل الصلاحيات دائمًا
+    // الـ Root عنده كل الصلاحيات النشطة دائمًا
     let permissions: Permission[] = [];
     if (admin.is_root) {
-      permissions = (
-        await import("../models/SuperAdminPermission")
-      ).PERMISSIONS.slice() as any;
+      permissions = ACTIVE_PERMISSIONS.slice() as Permission[];
     } else {
       const permDoc = await SuperAdminPermissionModel.findOne({
         admin_id: admin._id,

@@ -7,7 +7,7 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/", requirePermission("audit:read"), listAuditLogs);
-router.get("/stats", requirePermission("audit:read"), auditStats);
+router.get("/", requirePermission("audit:view"), listAuditLogs);
+router.get("/stats", requirePermission("audit:view"), auditStats);
 
 export default router;

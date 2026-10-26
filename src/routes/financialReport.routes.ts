@@ -12,7 +12,7 @@ import { requirePermission } from "../middlewares/permission.middleware";
 const router = Router();
 
 router.use(authenticate);
-router.use(requirePermission("financial_reports:read"));
+router.use(requirePermission("financial_reports:view"));
 
 router.get("/summary", getFinancialSummary);
 router.get("/monthly", getMonthlyRevenue);

@@ -17,31 +17,31 @@ router.use(authenticate);
 // Operation reports
 router.get(
   "/operations",
-  requirePermission("reports:read"),
+  requirePermission("reports:view"),
   getOperationReports,
 );
 router.get(
   "/operations/:id",
-  requirePermission("reports:read"),
+  requirePermission("reports:view"),
   getOperationReportById,
 );
 router.patch(
   "/operations/:id/status",
-  requirePermission("reports:read"),
+  requirePermission("reports:view"),
   updateOperationStatus,
 );
 router.post(
   "/operations/:id/notes",
-  requirePermission("reports:read"),
+  requirePermission("reports:view"),
   addOperationNote,
 );
 router.delete(
   "/operations/:id/notes/:noteIndex",
-  requirePermission("reports:read"),
+  requirePermission("reports:view"),
   deleteOperationNote,
 );
 
 // Clients summary
-router.get("/clients", requirePermission("reports:read"), getClientsReport);
+router.get("/clients", requirePermission("reports:view"), getClientsReport);
 
 export default router;

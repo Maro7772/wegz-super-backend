@@ -5,23 +5,65 @@ import { SuperAdminModel } from "../models/SuperAdmin";
 import {
   SuperAdminPermissionModel,
   ACTIVE_PERMISSIONS,
+  PERMISSIONS,
+  buildPermissionsCatalog,
   type Permission,
 } from "../models/SuperAdminPermission";
 import { BadRequest, NotFound, ForbiddenError } from "../utils/errors";
 import { SuccessResponse } from "../utils/response";
 import { logAudit } from "../utils/audit.util";
 
+// ============================================================================
+// Catalog
+// ============================================================================
+
 /**
  * GET /api/admin/permissions/catalog
+ *
+ * ✨ جديد: بيرجع الـ resources مجمّعة مع actions + labels عشان الفرونت
+ * يرسم matrix (View / Add / Edit / Delete) بدل flat list.
+ *
+ * Response shape:
+ * {
+ *   resources: [
+ *     {
+ *       key: "clients",
+ *       label_en: "Clients",
+ *       label_ar: "العملاء",
+ *       actions: [
+ *         { key: "view",   label_en: "View",   label_ar: "عرض",   permission: "clients:view" },
+ *         { key: "add",    label_en: "Add",    label_ar: "إضافة", permission: "clients:add" },
+ *         { key: "edit",   label_en: "Edit",   label_ar: "تعديل", permission: "clients:edit" },
+ *         { key: "delete", label_en: "Delete", label_ar: "حذف",   permission: "clients:delete" }
+ *       ],
+ *       permissions: ["clients:view", "clients:add", "clients:edit", "clients:delete"]
+ *     },
+ *     ...
+ *   ],
+ *   all_permissions: [...]  // backward compat (flat list)
+ * }
  */
-export const listAvailablePermissions = asyncHandler(
+export const listPermissionsCatalog = asyncHandler(
   async (_req: AuthRequest, res: Response) => {
     SuccessResponse(res, {
-      message: "Available permissions",
-      data: { permissions: [...ACTIVE_PERMISSIONS] },
+      message: "Permissions catalog",
+      data: {
+        resources: buildPermissionsCatalog(),
+        all_permissions: [...ACTIVE_PERMISSIONS],
+      },
     });
   },
 );
+
+/**
+ * alias قديم — نفس الـ handler.
+ * عشان أي كود قديم على الفرونت بيستدعي /permissions ما يتكسرش.
+ */
+export const listAvailablePermissions = listPermissionsCatalog;
+
+// ============================================================================
+// Admin permissions
+// ============================================================================
 
 /**
  * GET /api/admin/admins/:id/permissions
@@ -54,7 +96,12 @@ export const getAdminPermissions = asyncHandler(
 
 /**
  * PUT /api/admin/admins/:id/permissions
- * Root فقط (يُفرض عبر middleware).
+ *
+ * - Validation ضد PERMISSIONS كاملة (مش ACTIVE_PERMISSIONS) عشان
+ *   الـ round-trip (fetch → edit → save) ميكسرش لو فيه deprecated permissions
+ *   متخزنة على admin.
+ * - Root بيتعدل من نفسه بس.
+ * - ✨ منع أي admin من تعديل صلاحيات نفسه (privilege escalation guard).
  */
 export const updateAdminPermissions = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -64,13 +111,10 @@ export const updateAdminPermissions = asyncHandler(
       throw new BadRequest("permissions must be an array");
     }
 
-    const invalid = permissions.filter(
-      (p) => !ACTIVE_PERMISSIONS.includes(p as any),
-    );
+    // ✨ validation ضد PERMISSIONS كاملة (includes deprecated)
+    const invalid = permissions.filter((p) => !PERMISSIONS.includes(p as any));
     if (invalid.length) {
-      throw new BadRequest(
-        `Invalid or deprecated permissions: ${invalid.join(", ")}`,
-      );
+      throw new BadRequest(`Invalid permissions: ${invalid.join(", ")}`);
     }
 
     const target = await SuperAdminModel.findById(req.params.id);
@@ -79,6 +123,11 @@ export const updateAdminPermissions = asyncHandler(
     // منع تعديل الـ Root إلا من نفسه
     if (target.is_root && req.admin!.id !== target._id.toString()) {
       throw new ForbiddenError("Cannot modify the root admin permissions");
+    }
+
+    // ✨ منع أي admin من تعديل صلاحيات نفسه (privilege escalation)
+    if (target._id.toString() === req.admin!.id) {
+      throw new ForbiddenError("You cannot modify your own permissions");
     }
 
     const before = await SuperAdminPermissionModel.findOne({

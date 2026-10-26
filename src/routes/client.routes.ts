@@ -27,20 +27,20 @@ const router = Router();
 router.use(authenticate);
 
 // ---- Basic CRUD ----
-router.get("/", requirePermission("clients:read"), listClients);
-router.post("/", requirePermission("clients:create"), createClient);
-router.get("/:id", requirePermission("clients:read"), getClientById);
-router.patch("/:id", requirePermission("clients:update"), updateClient);
+router.get("/", requirePermission("clients:view"), listClients);
+router.post("/", requirePermission("clients:add"), createClient);
+router.get("/:id", requirePermission("clients:view"), getClientById);
+router.patch("/:id", requirePermission("clients:edit"), updateClient);
 
 // ---- Sections assigned to a client ----
 router.get(
   "/:id/sections",
-  requirePermission("clients:read"),
+  requirePermission("clients:view"),
   getClientSections,
 );
 router.put(
   "/:id/sections",
-  requirePermission("clients:update"),
+  requirePermission("clients:edit"),
   setClientSections,
 );
 
@@ -49,56 +49,52 @@ router.delete("/:id", requirePermission("clients:delete"), deleteClient);
 // ---- Provisioning ----
 router.get(
   "/:id/provisioning-status",
-  requirePermission("clients:read"),
+  requirePermission("clients:view"),
   getProvisioningStatus,
 );
 router.post(
   "/:id/retry-provisioning",
-  requirePermission("clients:update"),
+  requirePermission("provisioning:add"), // ← retry = تشغيل provisioning
   retryProvisioning,
 );
 router.post(
   "/:id/provision-now",
-  requirePermission("provisioning:run"),
+  requirePermission("provisioning:add"), // ← كان provisioning:run
   provisionNow,
 );
 
 // ---- API Key ----
 router.post(
   "/:id/regenerate-api-key",
-  requirePermission("clients:update"),
+  requirePermission("clients:edit"),
   regenerateApiKey,
 );
 
 // ---- Lifecycle ----
-router.post("/:id/suspend", requirePermission("clients:update"), suspendClient);
-router.post(
-  "/:id/activate",
-  requirePermission("clients:update"),
-  activateClient,
-);
+router.post("/:id/suspend", requirePermission("clients:edit"), suspendClient);
+router.post("/:id/activate", requirePermission("clients:edit"), activateClient);
 
 // ---- Rebuild & deploy ----
 router.post(
   "/:id/rebuild-frontend",
-  requirePermission("clients:update"),
+  requirePermission("clients:edit"),
   rebuildFrontend,
 );
 
 // ---- Logs & diagnostics ----
-router.get("/:id/logs", requirePermission("clients:read"), getClientLogs);
+router.get("/:id/logs", requirePermission("clients:view"), getClientLogs);
 
 // ---- Tenant admin ----
 router.post(
   "/:id/reset-admin-password",
-  requirePermission("clients:update"),
+  requirePermission("clients:edit"),
   resetTenantAdminPassword,
 );
 
 // ---- SSL ----
 router.post(
   "/:id/ssl/install",
-  requirePermission("clients:update"),
+  requirePermission("clients:edit"),
   installClientSsl,
 );
 

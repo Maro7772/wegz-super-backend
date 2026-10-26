@@ -19,14 +19,10 @@ const router = Router();
 router.use(authenticate);
 
 // ---- Super Admins CRUD ----
-router.get("/admins", requirePermission("admins:read"), listSuperAdmins);
-router.post("/admins", requirePermission("admins:create"), createSuperAdmin);
-router.get("/admins/:id", requirePermission("admins:read"), getSuperAdminById);
-router.patch(
-  "/admins/:id",
-  requirePermission("admins:update"),
-  updateSuperAdmin,
-);
+router.get("/admins", requirePermission("admins:view"), listSuperAdmins);
+router.post("/admins", requirePermission("admins:add"), createSuperAdmin);
+router.get("/admins/:id", requirePermission("admins:view"), getSuperAdminById);
+router.patch("/admins/:id", requirePermission("admins:edit"), updateSuperAdmin);
 router.delete(
   "/admins/:id",
   requirePermission("admins:delete"),
@@ -36,17 +32,17 @@ router.delete(
 // ---- Permissions ----
 router.get(
   "/permissions/catalog",
-  requirePermission("admins:read"),
+  requirePermission("admins:view"), // ← كتالوج = عرض
   listAvailablePermissions,
 );
 router.get(
   "/admins/:id/permissions",
-  requirePermission("admins:read"),
+  requirePermission("admins:view"),
   getAdminPermissions,
 );
 router.put(
   "/admins/:id/permissions",
-  requirePermission("admins:update_permissions"),
+  requirePermission("admins:edit"), // ← كان admins:update_permissions
   updateAdminPermissions,
 );
 

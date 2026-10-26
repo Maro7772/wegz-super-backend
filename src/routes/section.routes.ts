@@ -15,19 +15,19 @@ const router = Router();
 router.use(authenticate);
 
 // List / create
-router.get("/", requirePermission("sections:read"), listSections);
-router.post("/", requirePermission("sections:create"), createSection);
+router.get("/", requirePermission("sections:view"), listSections);
+router.post("/", requirePermission("sections:add"), createSection);
 
 // Clients of a section (before /:id to avoid conflicts)
 router.get(
   "/:id/clients",
-  requirePermission("sections:read"),
+  requirePermission("sections:view"),
   listSectionClients,
 );
 
 // Single section
-router.get("/:id", requirePermission("sections:read"), getSectionById);
-router.patch("/:id", requirePermission("sections:update"), updateSection);
+router.get("/:id", requirePermission("sections:view"), getSectionById);
+router.patch("/:id", requirePermission("sections:edit"), updateSection);
 router.delete("/:id", requirePermission("sections:delete"), deleteSection);
 
 export default router;
