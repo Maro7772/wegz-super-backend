@@ -16,6 +16,31 @@ Backend مركزي (Super Admin) لمنصة Wegz:
 https://superback.wegz.org/health   ← للتأكد إن السيرفر شغال
 ```
 
+---
+
+## 📘 دليل الفرونت اند
+
+كل حاجة الفرونت محتاج يعملها — بالـ endpoints والـ request/response والـ edge cases:
+
+👉 **[`docs/frontend/README.md`](./docs/frontend/README.md)**
+
+| الملف | المحتوى |
+|---|---|
+| `00-conventions.md` | الـ Auth، شكل الـ response، الأخطاء، الـ enums، helper الصلاحيات |
+| `01-shell.md` | الـ Layout، السايدبار، الراوتس |
+| `02-dashboard.md` | لوحة التحكم |
+| `03-clients.md` | **العملاء** — القائمة، الإضافة، التجهيز، الحذف |
+| `04-sections.md` | الأقسام |
+| `05-sales.md` | المبيعات |
+| `06-payments.md` | المدفوعات + approve / reject |
+| `07-operation-reports.md` | تقارير التشغيل + الملاحظات |
+| `08-financial-reports.md` | التقارير المالية |
+| `09-admins-permissions.md` | المشرفين + مصفوفة الصلاحيات |
+| `10-audit.md` | سجل التدقيق |
+| `99-checklist.md` | شيك ليست قبل التسليم |
+
+---
+
 ## المتطلبات
 
 - Node.js >= 20
@@ -58,7 +83,7 @@ npm start        # node dist/server.js
 | `PLESK_VHOSTS_DIR` | للـ provisioning | مسار الـ subdomains |
 | `MASTER_FRONTEND_DIR` / `MASTER_BACKEND_DIR` | للـ provisioning | نسخ الـ build الجاهزة |
 | `PLESK_SYSTEM_USER` | لا | مستخدم تشغيل الملفات |
-| `SUPER_SYSTEGO_URL` | لا | رابط Super backend |
+| `SUPER_WEGZ_URL` | لا | رابط Super backend |
 | `SUPER_FRONTEND_URL` | لا | رابط لوحة الـ Super (CORS) |
 | `VERSION_UPDATER_*` | لا | خدمة تحديث النسخ |
 | `SSL_ADMIN_EMAIL` | لا | إيميل Let's Encrypt |
