@@ -112,7 +112,9 @@ export const updateAdminPermissions = asyncHandler(
     }
 
     // ✨ validation ضد PERMISSIONS كاملة (includes deprecated)
-    const invalid = permissions.filter((p) => !PERMISSIONS.includes(p as any));
+    // + إزالة التكرار عشان مفيش نفس الصلاحية متخزنة مرتين
+    const unique = [...new Set(permissions)];
+    const invalid = unique.filter((p) => !PERMISSIONS.includes(p as any));
     if (invalid.length) {
       throw new BadRequest(`Invalid permissions: ${invalid.join(", ")}`);
     }
@@ -138,7 +140,7 @@ export const updateAdminPermissions = asyncHandler(
       { admin_id: target._id },
       {
         $set: {
-          permissions,
+          permissions: unique,
           updated_by: req.admin!.id,
         },
       },
@@ -152,7 +154,7 @@ export const updateAdminPermissions = asyncHandler(
       targetId: target._id,
       metadata: {
         before: before?.permissions ?? [],
-        after: permissions,
+        after: unique,
       },
       ip: req.ip,
     });

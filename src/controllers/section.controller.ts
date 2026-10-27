@@ -7,6 +7,7 @@ import { ClientModel } from "../models/Client";
 import { BadRequest, NotFound, Conflict } from "../utils/errors";
 import { SuccessResponse } from "../utils/response";
 import { logAudit } from "../utils/audit.util";
+import { escapeRegex } from "../utils/regex";
 
 function slugify(input: string): string {
   return (
@@ -41,7 +42,7 @@ export const listSections = asyncHandler(
     const filter: any = {};
     if (status) filter.status = status;
     if (search) {
-      const regex = new RegExp(String(search), "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ name: regex }, { ar_name: regex }, { key: regex }];
     }
 
@@ -181,7 +182,12 @@ export const updateSection = asyncHandler(
     const { name, key, ar_name, description, icon, status, order } =
       req.body as any;
 
-    const section = await SectionModel.findById(req.params.id);
+    const id = String(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequest("Invalid section id");
+    }
+
+    const section = await SectionModel.findById(id);
     if (!section) throw new NotFound("Section not found");
 
     if (key !== undefined && String(key).trim()) {
@@ -230,7 +236,12 @@ export const updateSection = asyncHandler(
  */
 export const deleteSection = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const section = await SectionModel.findById(req.params.id);
+    const id = String(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequest("Invalid section id");
+    }
+
+    const section = await SectionModel.findById(id);
     if (!section) throw new NotFound("Section not found");
 
     const used = await ClientModel.countDocuments({ sections: section._id });

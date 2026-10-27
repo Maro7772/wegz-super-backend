@@ -28,18 +28,33 @@ export const provisionNow = asyncHandler(
       provisioning_error: null,
     });
 
-    await spawnProvisioningTask(client._id.toString());
+    let startError: string | null = null;
+
+    await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
+      startError = `Could not start provisioning: ${err?.message || err}`;
+      console.error(
+        `❌ Could not start provisioning for ${client._id}:`,
+        err,
+      );
+      await ClientModel.findByIdAndUpdate(client._id, {
+        provisioning_status: "failed",
+        provisioning_error: startError,
+      }).catch(() => {});
+    });
 
     SuccessResponse(
       res,
       {
-        message: "Provisioning started (detached scheduled task)",
+        message: startError
+          ? "Provisioning could not be started"
+          : "Provisioning started (detached scheduled task)",
         data: {
           id: client._id,
           log: `tmp/provision-${client._id}.log`,
+          ...(startError ? { error: startError } : {}),
         },
       },
-      202,
+      startError ? 500 : 202,
     );
   },
 );

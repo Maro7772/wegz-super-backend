@@ -3,6 +3,7 @@ import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { AuditLogModel } from "../models/AuditLog";
 import { SuccessResponse } from "../utils/response";
+import { escapeRegex } from "../utils/regex";
 
 /**
  * GET /api/admin/audit
@@ -23,7 +24,7 @@ export const listAuditLogs = asyncHandler(
 
     const filter: any = {};
     if (admin_id) filter.admin_id = admin_id;
-    if (action) filter.action = new RegExp(`^${action}`, "i");
+    if (action) filter.action = new RegExp(`^${escapeRegex(action)}`, "i");
     if (target_type) filter.target_type = target_type;
     if (target_id) filter.target_id = target_id;
 

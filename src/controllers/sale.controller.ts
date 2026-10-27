@@ -2,6 +2,7 @@ import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { SaleModel } from "../models/Sale";
+import { PaymentModel } from "../models/Payment";
 import { ClientModel } from "../models/Client";
 import { BadRequest, NotFound } from "../utils/errors";
 import { SuccessResponse } from "../utils/response";
@@ -300,6 +301,13 @@ export const deleteSale = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const sale = await SaleModel.findById(req.params.id);
     if (!sale) throw new NotFound("Sale not found");
+
+    // الدفعات المرتبطة بالبيع تفضل موجودة (سجل مالي)، بنفكّ الربط بس
+    // عشان ما يبقاش فيه sale_id بيشاور على Sale محذوف.
+    await PaymentModel.updateMany(
+      { sale_id: sale._id },
+      { $unset: { sale_id: 1 } },
+    );
 
     await sale.deleteOne();
 

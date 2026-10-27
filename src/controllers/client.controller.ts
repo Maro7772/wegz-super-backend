@@ -7,10 +7,15 @@ import asyncHandler from "express-async-handler";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import type { AuthRequest } from "../middlewares/auth.middleware";
-import { ClientModel } from "../models/Client";
+import {
+  ClientModel,
+  OPERATION_STATUSES,
+  PAYMENT_CYCLES,
+} from "../models/Client";
 import { SectionModel } from "../models/Section";
 import { TenantApiKeyModel } from "../models/TenantApiKey";
 import { BadRequest, NotFound, Conflict } from "../utils/errors";
+import { escapeRegex } from "../utils/regex";
 import { SuccessResponse } from "../utils/response";
 import { logAudit } from "../utils/audit.util";
 import {
@@ -83,6 +88,10 @@ export const createClient = asyncHandler(
       );
     }
 
+    if (String(password).length < 6) {
+      throw new BadRequest("password must be at least 6 characters");
+    }
+
     const validationError = validateSubdomainName(subdomain);
     if (validationError) throw new BadRequest(validationError);
 
@@ -121,19 +130,33 @@ export const createClient = asyncHandler(
       ip: req.ip,
     });
 
+    let provisioningStarted = true;
+
     // Provision in a detached scheduled task. Plesk restarts the web server while
     // creating subdomains / enabling Node.js / issuing SSL, which would kill an
     // in-process provisioning job (that is why it used to get stuck).
-    await spawnProvisioningTask(client._id.toString()).catch((err) => {
+    await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
+      provisioningStarted = false;
       console.error(`❌ Could not start provisioning for ${client._id}:`, err);
+      // من غير كده العميل يفضل pending للأبد والواجهة تقول "هيبدأ قريبًا"
+      await ClientModel.findByIdAndUpdate(client._id, {
+        provisioning_status: "failed",
+        provisioning_error: `Could not start provisioning: ${err?.message || err}`,
+      }).catch(() => {});
     });
 
     SuccessResponse(
       res,
       {
-        message: "Client created. Provisioning will start shortly.",
+        message: provisioningStarted
+          ? "Client created. Provisioning will start shortly."
+          : "Client created, but provisioning could not be started.",
         data: {
-          client: { id: client._id, status: client.provisioning_status },
+          client: {
+            id: client._id,
+            status: provisioningStarted ? client.provisioning_status : "failed",
+          },
+          provisioning_started: provisioningStarted,
           // 🔑 في dev mode نرجّع الـ API key مباشرة (فقط للاختبار)
           ...(env.NODE_ENV === "development" && {
             devHint: "API key سيظهر في terminal بعد ثانية",
@@ -163,10 +186,11 @@ export const listClients = asyncHandler(
     if (status) filter.status = status;
     if (section_id) filter.sections = section_id;
     if (search) {
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [
-        { company_name: new RegExp(String(search), "i") },
-        { email: new RegExp(String(search), "i") },
-        { subdomain: new RegExp(String(search), "i") },
+        { company_name: regex },
+        { email: regex },
+        { subdomain: regex },
       ];
     }
 
@@ -247,14 +271,36 @@ export const getProvisioningStatus = asyncHandler(
  */
 export const updateClient = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { subdomain, ...rest } = req.body;
+    const { subdomain, ...rest } = req.body as Record<string, any>;
 
     const client = await ClientModel.findById(req.params.id);
     if (!client) throw new NotFound("Client not found");
 
-    if (rest.email && rest.email.toLowerCase() !== client.email) {
+    // Whitelist: منع تعديل حقول مش المفروض تتغير من الفورم
+    // (password / subdomain / provisioning_* / db_name / الروابط).
+    const editable = [
+      "company_name",
+      "email",
+      "logoBase64",
+      "sections",
+      "sales_agent_id",
+      "sales_man_name",
+      "sales_man_phone",
+      "operation_status",
+      "payment_cycle",
+      "payment_amount",
+      "last_payment_date",
+      "status",
+    ];
+
+    const updates: Record<string, any> = {};
+    for (const key of editable) {
+      if (rest[key] !== undefined) updates[key] = rest[key];
+    }
+
+    if (updates.email && String(updates.email).toLowerCase() !== client.email) {
       const exists = await ClientModel.findOne({
-        email: rest.email.toLowerCase(),
+        email: String(updates.email).toLowerCase(),
       });
       if (exists) throw new Conflict("Email already in use");
     }
@@ -265,11 +311,37 @@ export const updateClient = asyncHandler(
       );
     }
 
-    if (rest.sections !== undefined) {
-      rest.sections = await resolveSections(rest.sections);
+    if (updates.status !== undefined) {
+      if (!["active", "suspended", "pending"].includes(updates.status)) {
+        throw new BadRequest("Invalid status");
+      }
     }
 
-    Object.assign(client, rest);
+    if (updates.operation_status !== undefined) {
+      if (!OPERATION_STATUSES.includes(updates.operation_status)) {
+        throw new BadRequest("Invalid operation_status");
+      }
+    }
+
+    if (updates.payment_cycle !== undefined && updates.payment_cycle !== null) {
+      if (!PAYMENT_CYCLES.includes(updates.payment_cycle)) {
+        throw new BadRequest("Invalid payment_cycle");
+      }
+    }
+
+    if (updates.payment_amount !== undefined) {
+      const amount = Number(updates.payment_amount);
+      if (!Number.isFinite(amount) || amount < 0) {
+        throw new BadRequest("payment_amount must be >= 0");
+      }
+      updates.payment_amount = amount;
+    }
+
+    if (updates.sections !== undefined) {
+      updates.sections = await resolveSections(updates.sections);
+    }
+
+    Object.assign(client, updates);
     await client.save();
 
     const populated = await ClientModel.findById(client._id)
@@ -555,8 +627,8 @@ export const getClientLogs = asyncHandler(
  */
 export const resetTenantAdminPassword = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { new_password } = req.body as { new_password?: string };
-    if (!new_password || new_password.length < 6) {
+    const { new_password } = req.body as { new_password?: unknown };
+    if (typeof new_password !== "string" || new_password.length < 6) {
       throw new BadRequest("new_password must be at least 6 characters");
     }
 
@@ -570,13 +642,25 @@ export const resetTenantAdminPassword = asyncHandler(
 
     const { getTenantDatabase } = await import("../config/tenantDb");
     const conn = await getTenantDatabase(client.db_name);
+    const users = conn.collection("users");
 
-    await conn
-      .collection("users")
-      .updateOne(
-        { username: "admin" },
-        { $set: { password_hash: hash, updatedAt: new Date() } },
+    // المستخدم اللي بيتم إنشاؤه وقت الـ provisioning بيتخزن بـ email العميل.
+    // موديل User في wegz-backend: { name, email, phone, password, role, isActive }
+    const result = await users.updateOne(
+      { email: client.email },
+      { $set: { password: hash, updatedAt: new Date() } },
+    );
+
+    if (result.matchedCount === 0) {
+      // توافق: بعض قواعد البيانات القديمة اتزرع فيها المستخدم بـ role: "admin"
+      const fallback = await users.updateOne(
+        { role: "admin" },
+        { $set: { password: hash, updatedAt: new Date() } },
       );
+      if (fallback.matchedCount === 0) {
+        throw new NotFound("No admin user found in the tenant database");
+      }
+    }
 
     await logAudit({
       adminId: req.admin!.id,
@@ -604,25 +688,47 @@ export const installClientSsl = asyncHandler(
     const backendSub = `api-${client.subdomain}.${env.PLESK_PARENT_DOMAIN}`;
     const email = env.SSL_ADMIN_EMAIL;
 
-    if (!email) throw new BadRequest("SSL_ADMIN_EMAIL not configured");
-
     const { executePleskCli } = await import("../services/plesk.service");
 
     const results: any[] = [];
     for (const sub of [frontendSub, backendSub]) {
       try {
+        // نفس طريقة finalizeTenant (sslit) — عشان الزرار والـ provisioning
+        // يستخدموا نفس الـ extension الموجود على السيرفر.
         await executePleskCli("extension", [
-          "--exec",
-          "letsencrypt",
-          "cli.php",
-          "-d",
+          "--call",
+          "sslit",
+          "--certificate",
+          "-issue",
+          "-domain",
           sub,
-          "-m",
-          email,
+          "-secure-domain",
         ]);
         results.push({ subdomain: sub, success: true });
-      } catch (err: any) {
-        results.push({ subdomain: sub, success: false, error: err.message });
+      } catch (sslItError: any) {
+        // fallback للـ letsencrypt extension القديم (محتاج إيميل)
+        if (!email) {
+          results.push({
+            subdomain: sub,
+            success: false,
+            error: sslItError.message,
+          });
+          continue;
+        }
+        try {
+          await executePleskCli("extension", [
+            "--exec",
+            "letsencrypt",
+            "cli.php",
+            "-d",
+            sub,
+            "-m",
+            email,
+          ]);
+          results.push({ subdomain: sub, success: true });
+        } catch (err: any) {
+          results.push({ subdomain: sub, success: false, error: err.message });
+        }
       }
     }
 
@@ -712,12 +818,19 @@ export const retryProvisioning = asyncHandler(
       provisioning_error: null,
     });
 
+    let startError: string | null = null;
+
     // تشغيل الـ provisioning في الخلفية (خارج Passenger)
-    await spawnProvisioningTask(client._id.toString()).catch((err) => {
+    await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
+      startError = `Could not start provisioning: ${err?.message || err}`;
       console.error(
         `❌ Could not start retry provisioning for ${client._id}:`,
         err,
       );
+      await ClientModel.findByIdAndUpdate(client._id, {
+        provisioning_status: "failed",
+        provisioning_error: startError,
+      }).catch(() => {});
     });
 
     await logAudit({
@@ -732,10 +845,16 @@ export const retryProvisioning = asyncHandler(
     SuccessResponse(
       res,
       {
-        message: "Provisioning retry started",
-        data: { id: client._id, provisioning_status: "pending" },
+        message: startError
+          ? "Provisioning could not be started"
+          : "Provisioning retry started",
+        data: {
+          id: client._id,
+          provisioning_status: startError ? "failed" : "pending",
+          ...(startError ? { error: startError } : {}),
+        },
       },
-      202,
+      startError ? 500 : 202,
     );
   },
 );

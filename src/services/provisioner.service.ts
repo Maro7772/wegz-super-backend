@@ -257,7 +257,7 @@ async function createTenantDatabase(
     console.log(`[Provision] metadata already exists in ${dbName} — kept`);
   }
 
-  // Seed admin user — idempotent (مطابق لموديل المستخدم في wegz-backend)
+  // Seed admin user — idempotent (مطابق لموديل User في wegz-backend)
   await conn.createCollection("users").catch(() => {});
   const adminExists =
     (await conn.collection("users").countDocuments({ email: client.email })) > 0;

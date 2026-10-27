@@ -2,12 +2,13 @@ import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import mongoose from "mongoose";
 import type { AuthRequest } from "../middlewares/auth.middleware";
-import { PaymentModel } from "../models/Payment";
+import { PaymentModel, PAYMENT_STATUSES } from "../models/Payment";
 import { SaleModel } from "../models/Sale";
 import { ClientModel } from "../models/Client";
 import { BadRequest, NotFound } from "../utils/errors";
 import { SuccessResponse } from "../utils/response";
 import { logAudit } from "../utils/audit.util";
+import { escapeRegex } from "../utils/regex";
 import { env } from "../config/env";
 
 /**
@@ -35,6 +36,12 @@ export const createPayment = asyncHandler(
     if (!client_id) throw new BadRequest("client_id is required");
     if (amount === undefined || Number(amount) < 0) {
       throw new BadRequest("amount is required and must be >= 0");
+    }
+
+    if (status !== undefined && !PAYMENT_STATUSES.includes(status)) {
+      throw new BadRequest(
+        `status must be one of: ${PAYMENT_STATUSES.join(", ")}`,
+      );
     }
 
     const client = await ClientModel.findById(client_id);
@@ -109,7 +116,7 @@ export const listPayments = asyncHandler(
     }
     if (status) filter.status = status;
     if (method) filter.method = method;
-    if (search) filter.reference = new RegExp(String(search), "i");
+    if (search) filter.reference = new RegExp(escapeRegex(search), "i");
 
     if (from || to) {
       filter.date = {};
@@ -191,9 +198,10 @@ export const approvePayment = asyncHandler(
     payment.status = "approve";
     payment.reviewed_by = req.admin!.id as any;
     payment.reviewed_at = new Date();
-
-    const client = await applyApprovedPayment(payment);
     await payment.save();
+
+    // بعد ما الدفعة تتسجل approve، نحدّث العميل/الـ Sale المرتبط
+    const client = await applyApprovedPayment(payment);
 
     await logAudit({
       adminId: req.admin!.id,

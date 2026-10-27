@@ -39,6 +39,10 @@ export const createSuperAdmin = asyncHandler(
       throw new BadRequest("name, email, and password are required");
     }
 
+    if (String(password).length < 6) {
+      throw new BadRequest("password must be at least 6 characters");
+    }
+
     const exists = await SuperAdminModel.findOne({
       email: email.toLowerCase(),
     });
@@ -174,9 +178,18 @@ export const updateSuperAdmin = asyncHandler(
     }
 
     if (name) admin.name = name;
-    if (status && ["active", "inactive"].includes(status))
+    if (status !== undefined) {
+      if (!["active", "inactive"].includes(status)) {
+        throw new BadRequest("status must be active or inactive");
+      }
       admin.status = status;
-    if (password) admin.password = password; // سيتشفر في pre-save
+    }
+    if (password) {
+      if (String(password).length < 6) {
+        throw new BadRequest("password must be at least 6 characters");
+      }
+      admin.password = password; // سيتشفر في pre-save
+    }
 
     await admin.save();
 

@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
-import { ClientModel } from "../models/Client";
+import { ClientModel, OPERATION_STATUSES } from "../models/Client";
 import { SectionModel } from "../models/Section";
 import { PaymentModel } from "../models/Payment";
 import { SaleModel } from "../models/Sale";
@@ -176,6 +176,9 @@ export const deleteOperationNote = asyncHandler(
     if (!client) throw new NotFound("Client not found");
 
     const index = Number(noteIndex);
+    if (!Number.isInteger(index) || index < 0) {
+      throw new BadRequest("noteIndex must be a non-negative integer");
+    }
     if (!client.notes || !client.notes[index]) {
       throw new NotFound("Note not found");
     }
@@ -200,6 +203,21 @@ export const updateOperationStatus = asyncHandler(
 
     if (status === undefined && operation_status === undefined) {
       throw new BadRequest("Nothing to update");
+    }
+
+    const clientStatuses = ["active", "suspended", "pending"];
+    if (status !== undefined && !clientStatuses.includes(status)) {
+      throw new BadRequest(
+        `status must be one of: ${clientStatuses.join(", ")}`,
+      );
+    }
+    if (
+      operation_status !== undefined &&
+      !OPERATION_STATUSES.includes(operation_status)
+    ) {
+      throw new BadRequest(
+        `operation_status must be one of: ${OPERATION_STATUSES.join(", ")}`,
+      );
     }
 
     const client = await ClientModel.findById(req.params.id);

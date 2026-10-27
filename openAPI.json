@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wegz Super Admin API",
-    "version": "1.0.0",
-    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Permissions, Sections, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are assigned one or more Sections (hero, header, footer, ...). Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.",
+    "version": "1.1.0",
+    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Permissions, Sections, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Diagnostics, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are assigned one or more Sections (hero, header, footer, ...). Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.",
     "contact": {
       "name": "Wegz",
       "email": "admin@wegz.org"
@@ -177,31 +177,30 @@
                       "email": "wegz@gmail.com",
                       "is_root": true,
                       "permissions": [
-                        "clients:read",
-                        "clients:create",
-                        "clients:update",
+                        "clients:view",
+                        "clients:add",
+                        "clients:edit",
                         "clients:delete",
-                        "sections:read",
-                        "sections:create",
-                        "sections:update",
+                        "sections:view",
+                        "sections:add",
+                        "sections:edit",
                         "sections:delete",
-                        "sales:read",
-                        "sales:create",
-                        "sales:update",
+                        "sales:view",
+                        "sales:add",
+                        "sales:edit",
                         "sales:delete",
-                        "payments:read",
-                        "payments:create",
-                        "payments:approve",
+                        "payments:view",
+                        "payments:add",
+                        "payments:edit",
                         "payments:delete",
-                        "reports:read",
-                        "financial_reports:read",
-                        "admins:read",
-                        "admins:create",
-                        "admins:update",
+                        "reports:view",
+                        "financial_reports:view",
+                        "admins:view",
+                        "admins:add",
+                        "admins:edit",
                         "admins:delete",
-                        "admins:update_permissions",
-                        "audit:read",
-                        "provisioning:run"
+                        "audit:view",
+                        "provisioning:add"
                       ]
                     }
                   }
@@ -239,8 +238,8 @@
                         "is_root": true,
                         "status": "active",
                         "permissions": [
-                          "clients:read",
-                          "clients:create"
+                          "clients:view",
+                          "clients:add"
                         ],
                         "createdAt": "2026-10-01T09:00:00.000Z"
                       }
@@ -263,7 +262,7 @@
           "Admins & Permissions"
         ],
         "summary": "Create a super admin",
-        "description": "Requires admins:create. New admins start with no permissions; assign them via PUT /api/admin/admins/{id}/permissions.",
+        "description": "Requires admins:add. New admins start with no permissions; assign them via PUT /api/admin/admins/{id}/permissions.",
         "operationId": "createAdmin",
         "requestBody": {
           "required": true,
@@ -344,8 +343,8 @@
                       "is_root": false,
                       "status": "active",
                       "permissions": [
-                        "clients:read",
-                        "sales:create"
+                        "clients:view",
+                        "sales:add"
                       ]
                     }
                   }
@@ -461,39 +460,306 @@
         "operationId": "permissionCatalog",
         "responses": {
           "200": {
-            "description": "Permission catalog",
+            "description": "Permission catalog grouped by resource",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Available permissions",
+                  "message": "Permissions catalog",
                   "data": {
-                    "permissions": [
-                      "clients:read",
-                      "clients:create",
-                      "clients:update",
+                    "resources": [
+                      {
+                        "key": "clients",
+                        "label_en": "Clients",
+                        "label_ar": "العملاء",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "clients:view"
+                          },
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "clients:add"
+                          },
+                          {
+                            "key": "edit",
+                            "label_en": "Edit",
+                            "label_ar": "تعديل",
+                            "permission": "clients:edit"
+                          },
+                          {
+                            "key": "delete",
+                            "label_en": "Delete",
+                            "label_ar": "حذف",
+                            "permission": "clients:delete"
+                          }
+                        ],
+                        "permissions": [
+                          "clients:view",
+                          "clients:add",
+                          "clients:edit",
+                          "clients:delete"
+                        ]
+                      },
+                      {
+                        "key": "sections",
+                        "label_en": "Sections",
+                        "label_ar": "الأقسام",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "sections:view"
+                          },
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "sections:add"
+                          },
+                          {
+                            "key": "edit",
+                            "label_en": "Edit",
+                            "label_ar": "تعديل",
+                            "permission": "sections:edit"
+                          },
+                          {
+                            "key": "delete",
+                            "label_en": "Delete",
+                            "label_ar": "حذف",
+                            "permission": "sections:delete"
+                          }
+                        ],
+                        "permissions": [
+                          "sections:view",
+                          "sections:add",
+                          "sections:edit",
+                          "sections:delete"
+                        ]
+                      },
+                      {
+                        "key": "sales",
+                        "label_en": "Sales",
+                        "label_ar": "المبيعات",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "sales:view"
+                          },
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "sales:add"
+                          },
+                          {
+                            "key": "edit",
+                            "label_en": "Edit",
+                            "label_ar": "تعديل",
+                            "permission": "sales:edit"
+                          },
+                          {
+                            "key": "delete",
+                            "label_en": "Delete",
+                            "label_ar": "حذف",
+                            "permission": "sales:delete"
+                          }
+                        ],
+                        "permissions": [
+                          "sales:view",
+                          "sales:add",
+                          "sales:edit",
+                          "sales:delete"
+                        ]
+                      },
+                      {
+                        "key": "payments",
+                        "label_en": "Payments",
+                        "label_ar": "المدفوعات",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "payments:view"
+                          },
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "payments:add"
+                          },
+                          {
+                            "key": "edit",
+                            "label_en": "Edit",
+                            "label_ar": "تعديل",
+                            "permission": "payments:edit"
+                          },
+                          {
+                            "key": "delete",
+                            "label_en": "Delete",
+                            "label_ar": "حذف",
+                            "permission": "payments:delete"
+                          }
+                        ],
+                        "permissions": [
+                          "payments:view",
+                          "payments:add",
+                          "payments:edit",
+                          "payments:delete"
+                        ]
+                      },
+                      {
+                        "key": "reports",
+                        "label_en": "Operation Reports",
+                        "label_ar": "تقارير التشغيل",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "reports:view"
+                          }
+                        ],
+                        "permissions": [
+                          "reports:view"
+                        ]
+                      },
+                      {
+                        "key": "financial_reports",
+                        "label_en": "Financial Reports",
+                        "label_ar": "التقارير المالية",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "financial_reports:view"
+                          }
+                        ],
+                        "permissions": [
+                          "financial_reports:view"
+                        ]
+                      },
+                      {
+                        "key": "admins",
+                        "label_en": "Super Admins",
+                        "label_ar": "المشرفين",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "admins:view"
+                          },
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "admins:add"
+                          },
+                          {
+                            "key": "edit",
+                            "label_en": "Edit",
+                            "label_ar": "تعديل",
+                            "permission": "admins:edit"
+                          },
+                          {
+                            "key": "delete",
+                            "label_en": "Delete",
+                            "label_ar": "حذف",
+                            "permission": "admins:delete"
+                          }
+                        ],
+                        "permissions": [
+                          "admins:view",
+                          "admins:add",
+                          "admins:edit",
+                          "admins:delete"
+                        ]
+                      },
+                      {
+                        "key": "audit",
+                        "label_en": "Audit Logs",
+                        "label_ar": "سجل التدقيق",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "audit:view"
+                          }
+                        ],
+                        "permissions": [
+                          "audit:view"
+                        ]
+                      },
+                      {
+                        "key": "provisioning",
+                        "label_en": "Provisioning",
+                        "label_ar": "التجهيز",
+                        "actions": [
+                          {
+                            "key": "add",
+                            "label_en": "Add",
+                            "label_ar": "إضافة",
+                            "permission": "provisioning:add"
+                          }
+                        ],
+                        "permissions": [
+                          "provisioning:add"
+                        ]
+                      },
+                      {
+                        "key": "dashboard",
+                        "label_en": "Dashboard",
+                        "label_ar": "لوحة التحكم",
+                        "actions": [
+                          {
+                            "key": "view",
+                            "label_en": "View",
+                            "label_ar": "عرض",
+                            "permission": "dashboard:view"
+                          }
+                        ],
+                        "permissions": [
+                          "dashboard:view"
+                        ]
+                      }
+                    ],
+                    "all_permissions": [
+                      "clients:view",
+                      "clients:add",
+                      "clients:edit",
                       "clients:delete",
-                      "sections:read",
-                      "sections:create",
-                      "sections:update",
+                      "sections:view",
+                      "sections:add",
+                      "sections:edit",
                       "sections:delete",
-                      "sales:read",
-                      "sales:create",
-                      "sales:update",
+                      "sales:view",
+                      "sales:add",
+                      "sales:edit",
                       "sales:delete",
-                      "payments:read",
-                      "payments:create",
-                      "payments:approve",
+                      "payments:view",
+                      "payments:add",
+                      "payments:edit",
                       "payments:delete",
-                      "reports:read",
-                      "financial_reports:read",
-                      "admins:read",
-                      "admins:create",
-                      "admins:update",
+                      "reports:view",
+                      "financial_reports:view",
+                      "admins:view",
+                      "admins:add",
+                      "admins:edit",
                       "admins:delete",
-                      "admins:update_permissions",
-                      "audit:read",
-                      "provisioning:run"
+                      "audit:view",
+                      "provisioning:add",
+                      "dashboard:view"
                     ]
                   }
                 }
@@ -537,8 +803,8 @@
                       "is_root": false
                     },
                     "permissions": [
-                      "clients:read",
-                      "sales:create"
+                      "clients:view",
+                      "sales:add"
                     ]
                   }
                 }
@@ -572,15 +838,15 @@
               },
               "example": {
                 "permissions": [
-                  "clients:read",
-                  "clients:create",
-                  "clients:update",
-                  "sections:read",
-                  "sales:read",
-                  "sales:create",
-                  "payments:read",
-                  "payments:create",
-                  "reports:read"
+                  "clients:view",
+                  "clients:add",
+                  "clients:edit",
+                  "sections:view",
+                  "sales:view",
+                  "sales:add",
+                  "payments:view",
+                  "payments:add",
+                  "reports:view"
                 ]
               }
             }
@@ -596,15 +862,15 @@
                   "message": "Permissions updated",
                   "data": {
                     "permissions": [
-                      "clients:read",
-                      "clients:create",
-                      "clients:update",
-                      "sections:read",
-                      "sales:read",
-                      "sales:create",
-                      "payments:read",
-                      "payments:create",
-                      "reports:read"
+                      "clients:view",
+                      "clients:add",
+                      "clients:edit",
+                      "sections:view",
+                      "sales:view",
+                      "sales:add",
+                      "payments:view",
+                      "payments:add",
+                      "reports:view"
                     ]
                   }
                 }
@@ -1004,13 +1270,61 @@
         "summary": "Retry provisioning",
         "operationId": "retryProvisioning",
         "responses": {
-          "200": {
-            "description": "Provisioning restarted",
+          "202": {
+            "description": "Provisioning retry started",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Provisioning restarted"
+                  "message": "Provisioning retry started",
+                  "data": {
+                    "id": "66f3c4d5e6f7a8b9c0d1e2f3",
+                    "provisioning_status": "pending"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/clients/{id}/provision-now": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "Start provisioning now",
+        "description": "Runs the provisioning job (tenant DB, subdomains, files, API key, backend .env) as a detached Plesk scheduled task so it survives the web-server restart. Requires the provisioning:add permission.",
+        "operationId": "provisionNow",
+        "responses": {
+          "202": {
+            "description": "Provisioning started",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Provisioning started (detached scheduled task)",
+                  "data": {
+                    "id": "66f3c4d5e6f7a8b9c0d1e2f3",
+                    "log": "tmp/provision-66f3c4d5e6f7a8b9c0d1e2f3.log"
+                  }
                 }
               }
             }
@@ -1245,7 +1559,7 @@
           "Clients"
         ],
         "summary": "Reset the tenant admin password",
-        "description": "Updates the password_hash of the admin user inside the tenant database.",
+        "description": "Updates the bcrypt-hashed `password` of the admin user inside the tenant database (matched by the client email).",
         "operationId": "resetTenantAdminPassword",
         "requestBody": {
           "required": true,
@@ -2866,6 +3180,42 @@
         }
       }
     },
+    "/api/admin/diagnostics/migrate-from-atlas": {
+      "post": {
+        "tags": [
+          "Diagnostics"
+        ],
+        "summary": "Migrate the Super database from Atlas to Plesk MongoDB (root only)",
+        "description": "Runs scripts/migrate-to-plesk.cjs with SOURCE_MONGO_URI. Requires a root admin and MIGRATION_ENABLED=true. The source URI is read from SOURCE_MONGO_URI or from a commented `# MONGO_URI=` line in .env.",
+        "operationId": "migrateFromAtlas",
+        "responses": {
+          "200": {
+            "description": "Migration finished",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Migration finished",
+                  "data": {
+                    "stdout": "…",
+                    "stderr": ""
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/admin/audit": {
       "get": {
         "tags": [
@@ -3744,6 +4094,67 @@
         },
         "description": "A client assigned to multiple sections is counted in each of them, so rows overlap and do not sum to total revenue."
       }
+    },
+    "/api/admin/financial-reports/by-category": {
+      "get": {
+        "tags": [
+          "Financial Reports"
+        ],
+        "summary": "Approved revenue grouped by section (deprecated alias)",
+        "description": "Deprecated alias of /api/admin/financial-reports/by-section. Returns exactly the same data and is kept only for backward compatibility.",
+        "operationId": "revenueByCategory",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revenue by section",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Revenue by section retrieved",
+                  "data": {
+                    "currency": "EGP",
+                    "sections": [
+                      {
+                        "section_id": "66f2b3c4d5e6f7a8b9c0d1e2",
+                        "key": "hero",
+                        "name": "Hero",
+                        "clients_count": 10,
+                        "payments_count": 20,
+                        "total": 25000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3911,8 +4322,7 @@
             "type": "string",
             "enum": [
               "active",
-              "inactive",
-              "suspended"
+              "inactive"
             ]
           }
         }
@@ -3933,32 +4343,33 @@
       },
       "Permission": {
         "type": "string",
+        "description": "One permission in the form `resource:action`.",
         "enum": [
-          "clients:read",
-          "clients:create",
-          "clients:update",
+          "clients:view",
+          "clients:add",
+          "clients:edit",
           "clients:delete",
-          "sections:read",
-          "sections:create",
-          "sections:update",
+          "sections:view",
+          "sections:add",
+          "sections:edit",
           "sections:delete",
-          "sales:read",
-          "sales:create",
-          "sales:update",
+          "sales:view",
+          "sales:add",
+          "sales:edit",
           "sales:delete",
-          "payments:read",
-          "payments:create",
-          "payments:approve",
+          "payments:view",
+          "payments:add",
+          "payments:edit",
           "payments:delete",
-          "reports:read",
-          "financial_reports:read",
-          "admins:read",
-          "admins:create",
-          "admins:update",
+          "reports:view",
+          "financial_reports:view",
+          "admins:view",
+          "admins:add",
+          "admins:edit",
           "admins:delete",
-          "admins:update_permissions",
-          "audit:read",
-          "provisioning:run"
+          "audit:view",
+          "provisioning:add",
+          "dashboard:view"
         ]
       },
       "ClientCreateRequest": {
@@ -4000,10 +4411,10 @@
           "operation_status": {
             "type": "string",
             "enum": [
+              "demo",
               "sales",
-              "active",
-              "inactive",
-              "suspended"
+              "data",
+              "delivered"
             ]
           },
           "payment_cycle": {
@@ -4038,10 +4449,6 @@
             "type": "string",
             "format": "email"
           },
-          "password": {
-            "type": "string",
-            "minLength": 6
-          },
           "logoBase64": {
             "type": "string"
           },
@@ -4057,10 +4464,10 @@
           "operation_status": {
             "type": "string",
             "enum": [
+              "demo",
               "sales",
-              "active",
-              "inactive",
-              "suspended"
+              "data",
+              "delivered"
             ]
           },
           "status": {
@@ -4090,6 +4497,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "last_payment_date": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -4246,8 +4657,8 @@
               "cash",
               "bank_transfer",
               "card",
+              "wallet",
               "cheque",
-              "online",
               "other"
             ],
             "default": "bank_transfer"
@@ -4306,10 +4717,10 @@
           "operation_status": {
             "type": "string",
             "enum": [
+              "demo",
               "sales",
-              "active",
-              "inactive",
-              "suspended"
+              "data",
+              "delivered"
             ]
           }
         }
@@ -4345,8 +4756,8 @@
               "cash",
               "bank_transfer",
               "card",
+              "wallet",
               "cheque",
-              "online",
               "other"
             ],
             "default": "bank_transfer"
