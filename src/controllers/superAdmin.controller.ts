@@ -1,13 +1,12 @@
 import type { Response } from "express";
 import asyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { SuperAdminModel } from "../models/SuperAdmin";
+import { RoleModel } from "../models/Role";
 import {
   SuperAdminPermissionModel,
   ACTIVE_PERMISSIONS,
-  PERMISSIONS,
-  buildPermissionsCatalog,
-  type Permission,
 } from "../models/SuperAdminPermission";
 import {
   BadRequest,
@@ -24,15 +23,17 @@ import { logAudit } from "../utils/audit.util";
 
 /**
  * POST /api/admin/admins
- * ينشئ Super Admin جديد (بدون صلاحيات — تُضاف لاحقًا عبر Permissions endpoint).
- * Root فقط.
+ * ينشئ Super Admin جديد.
+ * - لو بعت role_id: الأدمن بياخد صلاحيات الـ role (Live).
+ * - لو مبعتش: بيبدأ بدون صلاحيات وتُضاف لاحقًا عبر Permissions endpoint.
  */
 export const createSuperAdmin = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { name, email, password } = req.body as {
+    const { name, email, password, role_id } = req.body as {
       name?: string;
       email?: string;
       password?: string;
+      role_id?: string | null;
     };
 
     if (!name || !email || !password) {
@@ -48,15 +49,41 @@ export const createSuperAdmin = asyncHandler(
     });
     if (exists) throw new Conflict("Email already in use");
 
+    // ✨ التحقق من الـ role لو اتبعت
+    let role = null;
+    if (role_id) {
+      if (!mongoose.isValidObjectId(role_id)) {
+        throw new BadRequest("Invalid role_id");
+      }
+      role = await RoleModel.findById(role_id);
+      if (!role) throw new NotFound("Role not found");
+      if (role.status !== "active") {
+        throw new BadRequest("Cannot assign an inactive role");
+      }
+
+      // حماية من تصعيد الصلاحيات
+      if (!req.admin!.is_root) {
+        const overreach = role.permissions.filter(
+          (p) => !req.admin!.permissions.includes(p),
+        );
+        if (overreach.length) {
+          throw new ForbiddenError(
+            `You cannot assign a role with permissions you do not have: ${overreach.join(", ")}`,
+          );
+        }
+      }
+    }
+
     const admin = await SuperAdminModel.create({
       name,
       email,
       password,
       is_root: false,
+      role_id: role?._id ?? null,
       status: "active",
     });
 
-    // إنشاء صف صلاحيات فاضي (مبدئيًا)
+    // إنشاء صف صلاحيات فاضي (للتوافق مع الأدمنز القديمة)
     await SuperAdminPermissionModel.create({
       admin_id: admin._id,
       permissions: [],
@@ -68,7 +95,11 @@ export const createSuperAdmin = asyncHandler(
       action: "admin.create",
       targetType: "SuperAdmin",
       targetId: admin._id,
-      metadata: { email: admin.email, name: admin.name },
+      metadata: {
+        email: admin.email,
+        name: admin.name,
+        role: role?.name ?? null,
+      },
       ip: req.ip,
     });
 
@@ -83,6 +114,11 @@ export const createSuperAdmin = asyncHandler(
             email: admin.email,
             is_root: admin.is_root,
             status: admin.status,
+            role: role
+              ? { id: role._id, name: role.name, label: role.label }
+              : null,
+            permissions: role ? role.permissions : [],
+            role_id: role?._id ?? null,
           },
         },
       },
@@ -105,18 +141,46 @@ export const listSuperAdmins = asyncHandler(
       perms.map((p) => [p.admin_id.toString(), p.permissions]),
     );
 
+    // ✨ نجيب الـ roles مرة واحدة بدل query لكل أدمن
+    const roleIds = admins
+      .map((a) => a.role_id)
+      .filter((id): id is any => Boolean(id));
+    const roles = roleIds.length
+      ? await RoleModel.find({ _id: { $in: roleIds } })
+      : [];
+    const roleMap = new Map(roles.map((r) => [r._id.toString(), r]));
+
     SuccessResponse(res, {
       message: "Super Admins retrieved",
       data: {
-        admins: admins.map((a) => ({
-          id: a._id,
-          name: a.name,
-          email: a.email,
-          is_root: a.is_root,
-          status: a.status,
-          permissions: permMap.get(a._id.toString()) ?? [],
-          createdAt: a.createdAt,
-        })),
+        admins: admins.map((a) => {
+          const role = a.role_id
+            ? roleMap.get(a.role_id.toString())
+            : undefined;
+
+          return {
+            id: a._id,
+            name: a.name,
+            email: a.email,
+            is_root: a.is_root,
+            status: a.status,
+            role_id: a.role_id ?? null,
+            role: role
+              ? {
+                  id: role._id,
+                  name: role.name,
+                  label: role.label,
+                  status: role.status,
+                }
+              : null,
+            permissions: a.is_root
+              ? [...ACTIVE_PERMISSIONS]
+              : role
+                ? role.permissions
+                : (permMap.get(a._id.toString()) ?? []),
+            createdAt: a.createdAt,
+          };
+        }),
       },
     });
   },
@@ -134,6 +198,10 @@ export const getSuperAdminById = asyncHandler(
       admin_id: admin._id,
     });
 
+    const role = admin.role_id
+      ? await RoleModel.findById(admin.role_id)
+      : null;
+
     SuccessResponse(res, {
       message: "Super Admin retrieved",
       data: {
@@ -143,7 +211,20 @@ export const getSuperAdminById = asyncHandler(
           email: admin.email,
           is_root: admin.is_root,
           status: admin.status,
-          permissions: permDoc?.permissions ?? [],
+          role_id: admin.role_id ?? null,
+          role: role
+            ? {
+                id: role._id,
+                name: role.name,
+                label: role.label,
+                status: role.status,
+              }
+            : null,
+          permissions: admin.is_root
+            ? [...ACTIVE_PERMISSIONS]
+            : role
+              ? role.permissions
+              : (permDoc?.permissions ?? []),
         },
       },
     });
@@ -158,6 +239,12 @@ export const getSuperAdminById = asyncHandler(
 export const updateSuperAdmin = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { name, email, status, password } = req.body as any;
+
+    if (req.body?.role_id !== undefined) {
+      throw new BadRequest(
+        "Use PUT /api/admin/admins/:id/role to change the role",
+      );
+    }
 
     const admin = await SuperAdminModel.findById(req.params.id).select(
       "+password",
@@ -248,120 +335,69 @@ export const deleteSuperAdmin = asyncHandler(
 );
 
 // ============================================================================
-// Permissions — catalog + CRUD
+// Role assignment
 // ============================================================================
 
 /**
- * GET /api/admin/permissions/catalog
+ * PUT /api/admin/admins/:id/role
+ * body: { role_id: string | null }
  *
- * ✨ جديد: بيرجع الـ resources مجمّعة مع actions + labels عشان الفرونت
- * يرسم matrix (View / Add / Edit / Delete) بدل flat list من 40+ checkbox.
- *
- * Response shape:
- * {
- *   resources: [
- *     {
- *       key: "clients",
- *       label_en: "Clients",
- *       label_ar: "العملاء",
- *       actions: [
- *         { key: "view", label_en: "View", label_ar: "عرض",  permission: "clients:view" },
- *         { key: "add",  label_en: "Add",  label_ar: "إضافة", permission: "clients:add"  },
- *         ...
- *       ],
- *       permissions: ["clients:view", "clients:add", "clients:edit", "clients:delete"]
- *     },
- *     ...
- *   ],
- *   all_permissions: [...]  // backward compat
- * }
+ * - role_id = null → فصل الـ role (الأدمن بيبقى بدون صلاحيات).
+ * - الصلاحيات بتتحسب Live من الـ role، فمفيش نسخ هنا.
+ * - ممنوع أي أدمن يغيّر role نفسه (منع تصعيد الصلاحيات).
  */
-export const listPermissionsCatalog = asyncHandler(
-  async (_req: AuthRequest, res: Response) => {
-    SuccessResponse(res, {
-      message: "Permissions catalog",
-      data: {
-        resources: buildPermissionsCatalog(),
-        all_permissions: [...ACTIVE_PERMISSIONS],
-      },
-    });
-  },
-);
-
-/**
- * alias قديم — نفس الـ handler بالظبط عشان أي كود قديم على الفرونت
- * بيستدعي /permissions ما يتكسرش.
- */
-export const listAvailablePermissions = listPermissionsCatalog;
-
-/**
- * GET /api/admin/admins/:id/permissions
- */
-export const getAdminPermissions = asyncHandler(
+export const assignAdminRole = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const admin = await SuperAdminModel.findById(req.params.id);
-    if (!admin) throw new NotFound("Admin not found");
+    const { role_id } = req.body as { role_id?: string | null };
 
-    const permDoc = await SuperAdminPermissionModel.findOne({
-      admin_id: admin._id,
-    });
-
-    SuccessResponse(res, {
-      message: "Permissions retrieved",
-      data: {
-        admin: {
-          id: admin._id,
-          name: admin.name,
-          email: admin.email,
-          is_root: admin.is_root,
-        },
-        permissions: admin.is_root
-          ? [...ACTIVE_PERMISSIONS]
-          : (permDoc?.permissions ?? []),
-      },
-    });
-  },
-);
-
-/**
- * PUT /api/admin/admins/:id/permissions
- * Root فقط (يُفرض عبر middleware).
- *
- * ✨ تعديل: الـ validation بقى ضد PERMISSIONS كاملة (مش ACTIVE_PERMISSIONS)
- * عشان لو فيه permissions قديمة مخزّنة على admin، الـ round-trip (fetch → edit → save)
- * ميكسرش. الفرونت أصلاً مش هيعرض الـ deprecated في الكتالوج.
- */
-export const updateAdminPermissions = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const { permissions } = req.body as { permissions?: Permission[] };
-
-    if (!Array.isArray(permissions)) {
-      throw new BadRequest("permissions must be an array");
-    }
-
-    // ✨ validation ضد PERMISSIONS كاملة (includes deprecated)
-    const invalid = permissions.filter((p) => !PERMISSIONS.includes(p as any));
-    if (invalid.length) {
-      throw new BadRequest(`Invalid permissions: ${invalid.join(", ")}`);
+    if (role_id === undefined) {
+      throw new BadRequest("role_id is required (use null to remove the role)");
     }
 
     const target = await SuperAdminModel.findById(req.params.id);
     if (!target) throw new NotFound("Admin not found");
-
-    // منع تعديل الـ Root إلا من نفسه
-    if (target.is_root && req.admin!.id !== target._id.toString()) {
-      throw new ForbiddenError("Cannot modify the root admin permissions");
+    if (target.is_root) {
+      throw new ForbiddenError("The root admin does not use roles");
+    }
+    if (target._id.toString() === req.admin!.id) {
+      throw new ForbiddenError("You cannot change your own role");
     }
 
-    const before = await SuperAdminPermissionModel.findOne({
-      admin_id: target._id,
-    });
+    let role = null;
+    if (role_id !== null) {
+      if (!mongoose.isValidObjectId(role_id)) {
+        throw new BadRequest("Invalid role_id");
+      }
+      role = await RoleModel.findById(role_id);
+      if (!role) throw new NotFound("Role not found");
+      if (role.status !== "active") {
+        throw new BadRequest("Cannot assign an inactive role");
+      }
 
-    const updated = await SuperAdminPermissionModel.findOneAndUpdate(
+      // حماية من تصعيد الصلاحيات للأدمنز غير الـ root
+      if (!req.admin!.is_root) {
+        const overreach = role.permissions.filter(
+          (p) => !req.admin!.permissions.includes(p),
+        );
+        if (overreach.length) {
+          throw new ForbiddenError(
+            `You cannot assign a role with permissions you do not have: ${overreach.join(", ")}`,
+          );
+        }
+      }
+    }
+
+    const before = await SuperAdminModel.findById(target._id).select("role_id");
+
+    target.role_id = role?._id ?? null;
+    await target.save();
+
+    // الصلاحيات الفردية القديمة بتتشال لما الأدمن يبقى على role
+    await SuperAdminPermissionModel.findOneAndUpdate(
       { admin_id: target._id },
       {
         $set: {
-          permissions,
+          permissions: [],
           updated_by: req.admin!.id,
         },
       },
@@ -370,21 +406,26 @@ export const updateAdminPermissions = asyncHandler(
 
     await logAudit({
       adminId: req.admin!.id,
-      action: "admin.permissions.update",
+      action: "admin.role.assign",
       targetType: "SuperAdmin",
       targetId: target._id,
       metadata: {
-        before: before?.permissions ?? [],
-        after: permissions,
+        before: before?.role_id ?? null,
+        after: role?._id ?? null,
+        role_name: role?.name ?? null,
       },
       ip: req.ip,
     });
 
     SuccessResponse(res, {
-      message: "Permissions updated",
+      message: role ? "Role assigned" : "Role removed",
       data: {
         admin_id: target._id,
-        permissions: updated.permissions,
+        role_id: target.role_id ?? null,
+        role: role
+          ? { id: role._id, name: role.name, label: role.label }
+          : null,
+        permissions: role ? role.permissions : [],
       },
     });
   },

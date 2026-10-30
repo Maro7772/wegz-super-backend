@@ -8,6 +8,7 @@ import {
   ACTIVE_PERMISSIONS,
   type Permission,
 } from "../models/SuperAdminPermission";
+import { RoleModel } from "../models/Role";
 
 export interface AuthRequest extends Request {
   admin?: {
@@ -15,6 +16,12 @@ export interface AuthRequest extends Request {
     is_root: boolean;
     email: string;
     name: string;
+    role: {
+      id: string;
+      name: string;
+      label: string;
+      status: string;
+    } | null;
     permissions: Permission[];
   };
 }
@@ -39,11 +46,34 @@ export async function authenticate(
       return next(new UnauthorizedError("Admin not found or inactive"));
     }
 
-    // الـ Root عنده كل الصلاحيات النشطة دائمًا
     let permissions: Permission[] = [];
+    let roleInfo: NonNullable<AuthRequest["admin"]>["role"] = null;
+
     if (admin.is_root) {
+      // الـ Root عنده كل الصلاحيات النشطة دائمًا
       permissions = ACTIVE_PERMISSIONS.slice() as Permission[];
+    } else if (admin.role_id) {
+      // ✨ الصلاحيات بتتحسب LIVE من الـ Role
+      // أي تعديل في الـ Role بيتطبق على كل الأعضاء فورًا.
+      const role = await RoleModel.findById(admin.role_id);
+
+      if (!role || role.status !== "active") {
+        return next(
+          new UnauthorizedError(
+            "Assigned role not found or inactive. Contact the root admin.",
+          ),
+        );
+      }
+
+      permissions = role.permissions.slice() as Permission[];
+      roleInfo = {
+        id: role._id.toString(),
+        name: role.name,
+        label: role.label,
+        status: role.status,
+      };
     } else {
+      // توافق قديم: أدمنز معندهم Role لسه على الصلاحيات الفردية
       const permDoc = await SuperAdminPermissionModel.findOne({
         admin_id: admin._id,
       });
@@ -55,6 +85,7 @@ export async function authenticate(
       is_root: admin.is_root,
       email: admin.email,
       name: admin.name,
+      role: roleInfo,
       permissions,
     };
     next();

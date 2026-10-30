@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wegz Super Admin API",
-    "version": "1.1.0",
-    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Permissions, Sections, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Diagnostics, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are assigned one or more Sections (hero, header, footer, ...). Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.",
+    "version": "1.2.0",
+    "description": "Central Super Admin API for Wegz. Modules: Auth, Admins & Roles/Permissions, Sections, Clients (with Plesk provisioning), Sales, Payments, Operation Reports, Financial Reports, Dashboard, Diagnostics, Audit, and Tenant endpoints.\n\nThere are no Packages or Subscriptions. Clients are assigned one or more Sections (hero, header, footer, ...). Tenant databases are created on the Plesk server MongoDB (PLESK_MONGO_URI).\n\nAll admin endpoints require a JWT Bearer token. Tenant endpoints require the X-Tenant-Api-Key header.\n\nSuper admins can be granted permissions in two ways: a named Role (permission template such as \"cashier\") or custom per-admin permissions. Role permissions are resolved live on every request.",
     "contact": {
       "name": "Wegz",
       "email": "admin@wegz.org"
@@ -30,7 +30,7 @@
     },
     {
       "name": "Admins & Permissions",
-      "description": "Super admins and permission assignment"
+      "description": "Super admins, roles (named permission templates such as cashier), and permission assignment"
     },
     {
       "name": "Sections",
@@ -70,7 +70,7 @@
     },
     {
       "name": "Tenant",
-      "description": "Called by the client backend using the tenant API key"
+      "description": "Server-to-server only: called by each client's own backend with X-Tenant-Api-Key. Not used by the Super Admin frontend."
     }
   ],
   "security": [
@@ -262,7 +262,7 @@
           "Admins & Permissions"
         ],
         "summary": "Create a super admin",
-        "description": "Requires admins:add. New admins start with no permissions; assign them via PUT /api/admin/admins/{id}/permissions.",
+        "description": "Requires admins:add. Pass role_id to grant the role permissions (live). Without role_id the admin starts with no permissions and can be given custom permissions via PUT /api/admin/admins/{id}/permissions.",
         "operationId": "createAdmin",
         "requestBody": {
           "required": true,
@@ -274,7 +274,8 @@
               "example": {
                 "name": "Sales Agent",
                 "email": "sales1@wegz.org",
-                "password": "Secret@123"
+                "password": "Secret@123",
+                "role_id": "6710c9a2e4b1f0a3d5c7b812"
               }
             }
           }
@@ -827,7 +828,7 @@
           "Admins & Permissions"
         ],
         "summary": "Replace permissions of an admin",
-        "description": "Root only (enforced in the controller).",
+        "description": "Requires admins:edit. Only for admins without a role. If the admin has a role, update the role permissions instead (applies live).",
         "operationId": "updateAdminPermissions",
         "requestBody": {
           "required": true,
@@ -1355,7 +1356,7 @@
           "Clients"
         ],
         "summary": "Regenerate the tenant API key",
-        "description": "Revokes all previous keys. The raw key is returned once and is not stored.",
+        "description": "Requires clients:edit. Revokes every active key of the client and returns a new raw key. The raw key is shown only once (only its hash is stored), so copy it into the tenant backend .env as SUPER_SYSTEGO_API_KEY and restart the tenant backend — otherwise that tenant's server-to-server calls start returning 401.",
         "operationId": "regenerateApiKey",
         "responses": {
           "200": {
@@ -3364,7 +3365,7 @@
           "Tenant"
         ],
         "summary": "Verify tenant status",
-        "description": "Called by the client backend with X-Tenant-Api-Key. active is true only when the client status is active. The client can still log in when inactive and submit a payment.",
+        "description": "Server-to-server call made by the client's own backend, not by the Super Admin frontend. Send the tenant key in X-Tenant-Api-Key (stored on the tenant server as SUPER_SYSTEGO_API_KEY). active is true only when the client status is active. The client can still log in when inactive and submit a payment.",
         "operationId": "verifyTenant",
         "security": [
           {
@@ -3455,14 +3456,15 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           }
-        }
+        },
+        "description": "Server-to-server call made by the client's own backend. Returns only the payments of the client that owns the X-Tenant-Api-Key."
       },
       "post": {
         "tags": [
           "Tenant"
         ],
         "summary": "Submit a payment (appears as pending in Super)",
-        "description": "The client_id and status are taken from the API key and are not accepted from the body.",
+        "description": "Server-to-server call made by the client's own backend. The client_id and status are taken from the X-Tenant-Api-Key, never from the body.",
         "operationId": "submitTenantPayment",
         "security": [
           {
@@ -4155,6 +4157,462 @@
           }
         }
       }
+    },
+    "/api/admin/roles": {
+      "get": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "List roles",
+        "description": "Requires admins:view. Returns every role with its permissions and how many admins use it.",
+        "operationId": "listRoles",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search in name / label / label_ar",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Roles retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Roles retrieved",
+                  "data": {
+                    "roles": [
+                      {
+                        "id": "6710c9a2e4b1f0a3d5c7b812",
+                        "name": "cashier",
+                        "label": "Cashier",
+                        "label_ar": "كاشير",
+                        "description": null,
+                        "permissions": [
+                          "clients:view",
+                          "sales:view",
+                          "sales:add",
+                          "payments:view",
+                          "payments:add"
+                        ],
+                        "permissions_count": 5,
+                        "status": "active",
+                        "is_system": false,
+                        "admins_count": 2,
+                        "created_at": "2026-10-30T10:00:00.000Z",
+                        "updated_at": "2026-10-30T10:00:00.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "Create a role",
+        "description": "Requires admins:add. Non-root admins can only include permissions they already hold.",
+        "operationId": "createRole",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreateRequest"
+              },
+              "example": {
+                "name": "cashier",
+                "label": "Cashier",
+                "label_ar": "كاشير",
+                "permissions": [
+                  "clients:view",
+                  "sales:view",
+                  "sales:add"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Role created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Role created",
+                  "data": {
+                    "role": {
+                      "id": "6710c9a2e4b1f0a3d5c7b812",
+                      "name": "cashier",
+                      "label": "Cashier",
+                      "label_ar": "كاشير",
+                      "description": null,
+                      "permissions": [
+                        "clients:view",
+                        "sales:view",
+                        "sales:add",
+                        "payments:view",
+                        "payments:add"
+                      ],
+                      "permissions_count": 5,
+                      "status": "active",
+                      "is_system": false,
+                      "admins_count": 0,
+                      "created_at": "2026-10-30T10:00:00.000Z",
+                      "updated_at": "2026-10-30T10:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/roles/{id}": {
+      "get": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "Get a role with its admins",
+        "description": "Requires admins:view.",
+        "operationId": "getRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MongoDB ObjectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Role retrieved",
+                  "data": {
+                    "role": {
+                      "id": "6710c9a2e4b1f0a3d5c7b812",
+                      "name": "cashier",
+                      "label": "Cashier",
+                      "label_ar": "كاشير",
+                      "description": null,
+                      "permissions": [
+                        "clients:view",
+                        "sales:view",
+                        "sales:add",
+                        "payments:view",
+                        "payments:add"
+                      ],
+                      "permissions_count": 5,
+                      "status": "active",
+                      "is_system": false,
+                      "admins_count": 2,
+                      "created_at": "2026-10-30T10:00:00.000Z",
+                      "updated_at": "2026-10-30T10:00:00.000Z"
+                    },
+                    "admins": [
+                      {
+                        "id": "66f1a2b3c4d5e6f7a8b9c0d2",
+                        "name": "Ahmed",
+                        "email": "ahmed@wegz.org",
+                        "status": "active"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "Update a role",
+        "description": "Requires admins:edit. Permission changes apply live to every admin on the role.",
+        "operationId": "updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MongoDB ObjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdateRequest"
+              },
+              "example": {
+                "label_ar": "كاشير رئيسي",
+                "permissions": [
+                  "clients:view",
+                  "sales:view",
+                  "sales:add",
+                  "payments:view"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Role updated",
+                  "data": {
+                    "role": {
+                      "id": "6710c9a2e4b1f0a3d5c7b812",
+                      "name": "cashier",
+                      "label": "Cashier",
+                      "label_ar": "كاشير",
+                      "description": null,
+                      "permissions": [
+                        "clients:view",
+                        "sales:view",
+                        "sales:add",
+                        "payments:view",
+                        "payments:add"
+                      ],
+                      "permissions_count": 5,
+                      "status": "active",
+                      "is_system": false,
+                      "admins_count": 2,
+                      "created_at": "2026-10-30T10:00:00.000Z",
+                      "updated_at": "2026-10-30T10:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "Delete a role",
+        "description": "Requires admins:delete. Fails with 409 while admins are still assigned, unless force=true.",
+        "operationId": "deleteRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MongoDB ObjectId"
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "description": "Detach every admin from the role before deleting.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role deleted",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Role deleted",
+                  "data": {
+                    "detached_admins": 2
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/admins/{id}/role": {
+      "put": {
+        "tags": [
+          "Admins & Permissions"
+        ],
+        "summary": "Assign or remove an admin role",
+        "description": "Requires admins:edit. Permissions are resolved live from the role. Existing custom permissions on the admin are cleared. An admin cannot change their own role.",
+        "operationId": "assignAdminRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MongoDB ObjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleAssignRequest"
+              },
+              "examples": {
+                "assign": {
+                  "value": {
+                    "role_id": "6710c9a2e4b1f0a3d5c7b812"
+                  }
+                },
+                "remove": {
+                  "value": {
+                    "role_id": null
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role assigned or removed",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Role assigned",
+                  "data": {
+                    "admin_id": "66f1a2b3c4d5e6f7a8b9c0d2",
+                    "role_id": "6710c9a2e4b1f0a3d5c7b812",
+                    "role": {
+                      "id": "6710c9a2e4b1f0a3d5c7b812",
+                      "name": "cashier",
+                      "label": "Cashier"
+                    },
+                    "permissions": [
+                      "clients:view",
+                      "sales:view",
+                      "sales:add",
+                      "payments:view",
+                      "payments:add"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4167,7 +4625,8 @@
       "tenantApiKey": {
         "type": "apiKey",
         "in": "header",
-        "name": "X-Tenant-Api-Key"
+        "name": "X-Tenant-Api-Key",
+        "description": "Per-client server key (sk_...). Generated during provisioning and written to the tenant backend .env as SUPER_SYSTEGO_API_KEY. Only its SHA-256 hash is stored in the Super database, so it cannot be read back. Rotate it with POST /api/admin/clients/{id}/regenerate-api-key and copy the new value into the tenant .env."
       }
     },
     "parameters": {
@@ -4301,6 +4760,11 @@
           "password": {
             "type": "string",
             "minLength": 6
+          },
+          "role_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional role to assign. Permissions are resolved live from the role. Omit to create an admin with custom permissions."
           }
         }
       },
@@ -4863,6 +5327,88 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RoleCreateRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique slug. Example: cashier",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+          },
+          "label": {
+            "type": "string",
+            "description": "Display name. Defaults to name."
+          },
+          "label_ar": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "description": "Permission keys from GET /api/admin/permissions/catalog"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          }
+        }
+      },
+      "RoleUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "label_ar": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            },
+            "description": "Replaces the role permissions. Applies live to every admin on the role."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        }
+      },
+      "RoleAssignRequest": {
+        "type": "object",
+        "required": [
+          "role_id"
+        ],
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Role ObjectId, or null to remove the role from the admin."
           }
         }
       }

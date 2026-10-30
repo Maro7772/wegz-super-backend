@@ -1,6 +1,7 @@
 import { Router } from "express";
 import authRoutes from "./auth.routes";
 import superAdminRoutes from "./superAdmin.routes";
+import roleRoutes from "./role.routes";
 import sectionRoutes from "./section.routes";
 import clientRoutes from "./client.routes";
 import saleRoutes from "./sale.routes";
@@ -19,6 +20,9 @@ router.use("/auth", authRoutes);
 
 // Super Admin management (admins + permissions)
 router.use("/admin", superAdminRoutes);
+
+// Roles (قوالب الصلاحيات — Cashier / Manager / ...)
+router.use("/admin/roles", roleRoutes);
 
 // Sections (بدل Categories/Subcategories)
 router.use("/admin/sections", sectionRoutes);

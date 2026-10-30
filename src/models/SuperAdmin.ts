@@ -9,6 +9,8 @@ export interface ISuperAdmin extends Document {
   password: string;
   /** الأساسي — ليه كل الصلاحيات ومحدش يقدر يعدّلها غير بأمر صريح */
   is_root: boolean;
+  /** الأدمن ممكن ياخد Role واحد، وصلاحياته بتتحسب منه live */
+  role_id?: Types.ObjectId | null;
   status: "active" | "inactive";
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +29,12 @@ const schema = new Schema<ISuperAdmin>(
     },
     password: { type: String, required: true, select: false },
     is_root: { type: Boolean, default: false, index: true },
+    role_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Role",
+      default: null,
+      index: true,
+    },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true },

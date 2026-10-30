@@ -1,5 +1,6 @@
 export * from "./SuperAdmin";
 export * from "./SuperAdminPermission";
+export * from "./Role";
 export * from "./Section";
 export * from "./Client";
 export * from "./Sale";

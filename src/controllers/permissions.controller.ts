@@ -2,6 +2,7 @@ import type { Response } from "express";
 import asyncHandler from "express-async-handler";
 import type { AuthRequest } from "../middlewares/auth.middleware";
 import { SuperAdminModel } from "../models/SuperAdmin";
+import { RoleModel } from "../models/Role";
 import {
   SuperAdminPermissionModel,
   ACTIVE_PERMISSIONS,
@@ -77,6 +78,11 @@ export const getAdminPermissions = asyncHandler(
       admin_id: admin._id,
     });
 
+    // ✨ لو الأدمن على Role → الصلاحيات بتيجي منه (Live)
+    const role = admin.role_id
+      ? await RoleModel.findById(admin.role_id)
+      : null;
+
     SuccessResponse(res, {
       message: "Permissions retrieved",
       data: {
@@ -85,10 +91,23 @@ export const getAdminPermissions = asyncHandler(
           name: admin.name,
           email: admin.email,
           is_root: admin.is_root,
+          role_id: admin.role_id ?? null,
+          role: role
+            ? {
+                id: role._id,
+                name: role.name,
+                label: role.label,
+                status: role.status,
+              }
+            : null,
         },
+        // source بيوضّح للفرونت الصلاحيات جاية منين
+        source: admin.is_root ? "root" : role ? "role" : "custom",
         permissions: admin.is_root
           ? [...ACTIVE_PERMISSIONS]
-          : (permDoc?.permissions ?? []),
+          : role
+            ? role.permissions
+            : (permDoc?.permissions ?? []),
       },
     });
   },
@@ -97,6 +116,9 @@ export const getAdminPermissions = asyncHandler(
 /**
  * PUT /api/admin/admins/:id/permissions
  *
+ * - للأدمنز اللي معندهمش Role (custom permissions).
+ * - لو الأدمن على Role، لازم تعدّل صلاحيات الـ Role نفسه
+ *   (التغيير بيتطبق Live على كل الأعضاء).
  * - Validation ضد PERMISSIONS كاملة (مش ACTIVE_PERMISSIONS) عشان
  *   الـ round-trip (fetch → edit → save) ميكسرش لو فيه deprecated permissions
  *   متخزنة على admin.
@@ -122,6 +144,14 @@ export const updateAdminPermissions = asyncHandler(
     const target = await SuperAdminModel.findById(req.params.id);
     if (!target) throw new NotFound("Admin not found");
 
+    // الأدمن اللي على Role صلاحياته بتتدار من الـ Role نفسه
+    if (target.role_id) {
+      throw new BadRequest(
+        "This admin uses a role. Update the role permissions instead, " +
+          "or remove the role first via PUT /api/admin/admins/:id/role",
+      );
+    }
+
     // منع تعديل الـ Root إلا من نفسه
     if (target.is_root && req.admin!.id !== target._id.toString()) {
       throw new ForbiddenError("Cannot modify the root admin permissions");
@@ -130,6 +160,18 @@ export const updateAdminPermissions = asyncHandler(
     // ✨ منع أي admin من تعديل صلاحيات نفسه (privilege escalation)
     if (target._id.toString() === req.admin!.id) {
       throw new ForbiddenError("You cannot modify your own permissions");
+    }
+
+    // ✨ منع منح صلاحيات مش موجودة عند اللي بيعمل التعديل
+    if (!req.admin!.is_root) {
+      const overreach = unique.filter(
+        (p) => !req.admin!.permissions.includes(p),
+      );
+      if (overreach.length) {
+        throw new ForbiddenError(
+          `You cannot grant permissions you do not have: ${overreach.join(", ")}`,
+        );
+      }
     }
 
     const before = await SuperAdminPermissionModel.findOne({

@@ -5,6 +5,7 @@ import {
   getSuperAdminById,
   updateSuperAdmin,
   deleteSuperAdmin,
+  assignAdminRole,
 } from "../controllers/superAdmin.controller";
 import {
   listAvailablePermissions,
@@ -23,6 +24,11 @@ router.get("/admins", requirePermission("admins:view"), listSuperAdmins);
 router.post("/admins", requirePermission("admins:add"), createSuperAdmin);
 router.get("/admins/:id", requirePermission("admins:view"), getSuperAdminById);
 router.patch("/admins/:id", requirePermission("admins:edit"), updateSuperAdmin);
+router.put(
+  "/admins/:id/role",
+  requirePermission("admins:edit"),
+  assignAdminRole,
+);
 router.delete(
   "/admins/:id",
   requirePermission("admins:delete"),
