@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "seed:sections": "tsx src/scripts/seed-sections.ts",
     "migrate:sections": "tsx src/scripts/migrate-categories-to-sections.ts",
+    "migrate": "tsx src/scripts/migrate-tenants.ts",
     "migrate:tenants": "tsx src/scripts/migrate-tenants.ts",
     "migrate:plesk": "node scripts/migrate-to-plesk.cjs"
   },
