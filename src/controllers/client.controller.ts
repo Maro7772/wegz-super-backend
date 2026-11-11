@@ -14,10 +14,16 @@ import {
 } from "../models/Client";
 import { SectionModel } from "../models/Section";
 import { TenantApiKeyModel } from "../models/TenantApiKey";
+import { PaymentModel } from "../models/Payment";
 import { BadRequest, NotFound, Conflict } from "../utils/errors";
 import { escapeRegex } from "../utils/regex";
 import { SuccessResponse } from "../utils/response";
 import { logAudit } from "../utils/audit.util";
+import {
+  calculateEndDate,
+  isSubscriptionActive,
+  getDaysRemaining,
+} from "../utils/subscriptionDate.util";
 import {
   sanitizeSubdomainName,
   validateSubdomainName,
@@ -107,6 +113,11 @@ export const createClient = asyncHandler(
 
     const sectionIds = await resolveSections(sections);
 
+    // حساب فترة الاشتراك: start_date الآن، و end_date بعد فترة payment_cycle بحسب الشروط
+    const effectivePaymentCycle = payment_cycle || "monthly";
+    const startDate = new Date();
+    const endDate = calculateEndDate(startDate, effectivePaymentCycle);
+
     const client = await ClientModel.create({
       company_name,
       email,
@@ -120,8 +131,11 @@ export const createClient = asyncHandler(
       sales_man_name,
       sales_man_phone,
       operation_status,
-      payment_cycle,
+      payment_cycle: effectivePaymentCycle,
       payment_amount: payment_amount ?? 0,
+      start_date: startDate,
+      end_date: endDate,
+      last_payment_date: startDate,
     });
 
     await logAudit({
@@ -171,6 +185,14 @@ export const createClient = asyncHandler(
             backend_url: updatedClient?.backend_url,
             status: updatedClient?.status || client.status,
             provisioning_status: updatedClient?.provisioning_status || client.provisioning_status,
+            start_date: updatedClient?.start_date || client.start_date,
+            end_date: updatedClient?.end_date || client.end_date,
+            payment_cycle: updatedClient?.payment_cycle || client.payment_cycle,
+            days_remaining: getDaysRemaining(updatedClient?.end_date || client.end_date),
+            is_active_subscription: isSubscriptionActive(
+              updatedClient?.start_date || client.start_date,
+              updatedClient?.end_date || client.end_date,
+            ),
           },
           provisioning_started: provisioningStarted,
           mode: env.PROVISIONING_MODE,
@@ -223,6 +245,11 @@ export const listClients = asyncHandler(
         sections: assigned,
         sections_count: assigned.length,
         total_sections: totalSections,
+        days_remaining: getDaysRemaining(client.end_date),
+        is_active_subscription: isSubscriptionActive(
+          client.start_date,
+          client.end_date,
+        ),
       };
     });
 
@@ -255,6 +282,11 @@ export const getClientById = asyncHandler(
           sections: assigned,
           sections_count: assigned.length,
           total_sections: totalSections,
+          days_remaining: getDaysRemaining(client.end_date),
+          is_active_subscription: isSubscriptionActive(
+            client.start_date,
+            client.end_date,
+          ),
         },
       },
     });
@@ -876,5 +908,111 @@ export const retryProvisioning = asyncHandler(
       },
       startError ? 500 : 202,
     );
+  },
+);
+
+/**
+ * POST /api/admin/clients/renew-subscription
+ * أو POST /api/admin/clients/:id/renew-subscription
+ *
+ * يجدد الاشتراك لعميل محدد:
+ * Body: { client_id?, payment_cycle, payment_amount?, method?, reference?, notes? }
+ */
+export const renewSubscription = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const clientId = req.params.id || req.body?.client_id;
+    if (!clientId) {
+      throw new BadRequest("client_id is required");
+    }
+
+    const client = await ClientModel.findById(clientId);
+    if (!client) throw new NotFound("Client not found");
+
+    const requestedCycle =
+      req.body?.payment_cycle || client.payment_cycle || "monthly";
+    if (!PAYMENT_CYCLES.includes(requestedCycle)) {
+      throw new BadRequest(
+        `Invalid payment_cycle. Must be one of: ${PAYMENT_CYCLES.join(", ")}`,
+      );
+    }
+
+    const now = new Date();
+    let newStartDate: Date;
+    let newEndDate: Date;
+
+    // منطق التجديد الذكي:
+    // إذا كان الاشتراك الحالي لا يزال سارياً: نمدد من تاريخ الانتهاء الحالي لعدم ضياع أيام العميل
+    // إذا كان الاشتراك منتهياً: نبدأ الحساب من اللحظة الحالية (now)
+    if (client.end_date && new Date(client.end_date) > now) {
+      newStartDate = client.start_date || now;
+      newEndDate = calculateEndDate(new Date(client.end_date), requestedCycle);
+    } else {
+      newStartDate = now;
+      newEndDate = calculateEndDate(now, requestedCycle);
+    }
+
+    const amount =
+      req.body?.payment_amount !== undefined
+        ? Number(req.body.payment_amount)
+        : (client.payment_amount || 0);
+
+    client.start_date = newStartDate;
+    client.end_date = newEndDate;
+    client.payment_cycle = requestedCycle;
+    client.payment_amount = amount;
+    client.last_payment_date = now;
+    client.status = "active"; // إعادة التفعيل التلقائي إذا كان موقوفاً
+
+    await client.save();
+
+    // تسجيل حركة الدفع تلقائيًا في سجل المدفوعات لظهورها في التقارير المالية
+    await PaymentModel.create({
+      client_id: client._id,
+      amount,
+      currency: env.CURRENCY || "EGP",
+      date: now,
+      status: "approved",
+      method: req.body?.method || "cash",
+      payment_cycle: requestedCycle,
+      reference:
+        req.body?.reference ? String(req.body.reference) : `RENEW-${Date.now()}`,
+      notes:
+        req.body?.notes ||
+        `Subscription renewal (${requestedCycle}) by admin ${req.admin?.name || req.admin?.id}`,
+      reviewed_by: req.admin?.id,
+      created_by: req.admin?.id,
+    }).catch((payErr) => {
+      console.warn("[Renew] Non-fatal payment record notice:", payErr.message);
+    });
+
+    await logAudit({
+      adminId: req.admin!.id,
+      action: "client.subscription_renew",
+      targetType: "Client",
+      targetId: client._id,
+      metadata: {
+        payment_cycle: requestedCycle,
+        start_date: newStartDate,
+        end_date: newEndDate,
+        amount,
+      },
+      ip: req.ip,
+    });
+
+    SuccessResponse(res, {
+      message: "Subscription renewed successfully",
+      data: {
+        client_id: client._id,
+        company_name: client.company_name,
+        subdomain: client.subdomain,
+        payment_cycle: client.payment_cycle,
+        payment_amount: client.payment_amount,
+        start_date: client.start_date,
+        end_date: client.end_date,
+        status: client.status,
+        days_remaining: getDaysRemaining(client.end_date),
+        is_active: isSubscriptionActive(client.start_date, client.end_date),
+      },
+    });
   },
 );

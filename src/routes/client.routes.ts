@@ -17,6 +17,7 @@ import {
   installClientSsl,
   deleteClientFull,
   retryProvisioning,
+  renewSubscription,
 } from "../controllers/client.controller";
 import { provisionNow } from "../controllers/provision.controller";
 import { authenticate } from "../middlewares/auth.middleware";
@@ -70,7 +71,17 @@ router.post(
   regenerateApiKey,
 );
 
-// ---- Lifecycle ----
+// ---- Lifecycle & Subscription ----
+router.post(
+  "/renew-subscription",
+  requirePermission("clients:edit"),
+  renewSubscription,
+);
+router.post(
+  "/:id/renew-subscription",
+  requirePermission("clients:edit"),
+  renewSubscription,
+);
 router.post("/:id/suspend", requirePermission("clients:edit"), suspendClient);
 router.post("/:id/activate", requirePermission("clients:edit"), activateClient);
 

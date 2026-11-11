@@ -57,10 +57,12 @@ export interface IClient extends Document {
   sales_man_phone?: string;
   operation_status?: OperationStatus;
 
-  // ---- المالية ----
+  // ---- المالية والاشتراك ----
   payment_cycle?: PaymentCycle;
   payment_amount?: number;
   last_payment_date?: Date;
+  start_date?: Date;
+  end_date?: Date;
 
   notes?: IClientNote[];
 
@@ -130,10 +132,12 @@ const schema = new Schema<IClient>(
       index: true,
     },
 
-    // ---- المالية ----
+    // ---- المالية والاشتراك ----
     payment_cycle: { type: String, enum: PAYMENT_CYCLES },
     payment_amount: { type: Number, default: 0 },
     last_payment_date: { type: Date },
+    start_date: { type: Date, default: Date.now },
+    end_date: { type: Date, index: true },
 
     notes: { type: [noteSchema], default: [] },
     provisioning_status: {
