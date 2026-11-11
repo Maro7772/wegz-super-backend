@@ -36,6 +36,14 @@ export async function provisionClient(clientId: string) {
   if (!client) throw new Error(`Client ${clientId} not found`);
 
   // ==========================================================================
+  // 🌟 WILDCARD MODE: إنشاء الداتابيز وتفعيل الـ subdomain فورًا بدون Plesk API
+  // ==========================================================================
+  if (env.PROVISIONING_MODE === "wildcard") {
+    console.log(`🌟 [Wildcard Mode] Provisioning client: ${client.subdomain}`);
+    return provisionClientWildcard(clientId);
+  }
+
+  // ==========================================================================
   // 🧪 DEV MODE: simulate provisioning when Plesk is not configured
   // ==========================================================================
   const isDev = env.NODE_ENV === "development";
@@ -127,6 +135,77 @@ export async function provisionClient(clientId: string) {
       console.error("Failed to update status to failed in DB:", saveErr);
     });
 
+    await rollback(ctx);
+    throw err;
+  }
+}
+
+// ============================================================================
+// 🌟 Wildcard Provisioning (Instant & High-Performance)
+// ============================================================================
+
+export async function provisionClientWildcard(clientId: string) {
+  const client = await ClientModel.findById(clientId).select("+password");
+  if (!client) throw new Error(`Client ${clientId} not found`);
+
+  const parentDomain = env.WILDCARD_DOMAIN || env.PLESK_PARENT_DOMAIN || "wegz.org";
+  const frontendSubdomain = `${client.subdomain}.${parentDomain}`;
+  const backendSubdomain = `api-${client.subdomain}.${parentDomain}`;
+  const dbName = `${env.TENANT_DB_PREFIX}${client._id}`;
+
+  const ctx: ProvisionContext = {
+    clientId: client._id.toString(),
+    subdomain: client.subdomain,
+    dbName,
+    frontendSubdomain,
+    backendSubdomain,
+    completed: [],
+  };
+
+  try {
+    // 1. إنشاء قاعدة بيانات الـ tenant على MongoDB وزرع البيانات الأولية
+    await setProvisioningStatus(clientId, "creating_db");
+    ctx.dbExisted = await createTenantDatabase(ctx.dbName, client);
+    ctx.completed.push("db");
+
+    // تشغيل أحدث الميجريشنز لضمان أن الداتابيز مطابقة لآخر تعديلات الـ Schemas
+    const { runMigrationsForTenant } = await import("./tenantMigration.service");
+    await runMigrationsForTenant(client).catch((migErr) => {
+      console.warn(`[Provision] Non-fatal migration notice for ${client.subdomain}:`, migErr.message);
+    });
+
+    // 2. توليد مفتاح API للعميل
+    await setProvisioningStatus(clientId, "generating_key");
+    ctx.rawApiKey = await generateTenantApiKey(ctx.clientId);
+    ctx.completed.push("apiKey");
+
+    // 3. تحديث سجل العميل بروابط Wildcard وتفعيل الحساب مباشرة
+    await ClientModel.findByIdAndUpdate(clientId, {
+      subdomain_url: `https://${ctx.frontendSubdomain}`,
+      backend_url: `https://${ctx.backendSubdomain}`,
+      db_name: ctx.dbName,
+      status: "active",
+      provisioning_status: "completed",
+      provisioning_error: null,
+    });
+
+    console.log(
+      `✅ [Wildcard] Provisioning completed for ${client.company_name} (Subdomain: ${client.subdomain})`,
+    );
+    return {
+      rawApiKey: ctx.rawApiKey,
+      frontendUrl: ctx.frontendSubdomain,
+      backendUrl: ctx.backendSubdomain,
+    };
+  } catch (err: any) {
+    console.error(
+      `❌ [Wildcard] Provisioning failed for ${client.company_name}:`,
+      err.message || err,
+    );
+    await ClientModel.findByIdAndUpdate(clientId, {
+      provisioning_status: "failed",
+      provisioning_error: err.message || String(err),
+    }).catch(() => {});
     await rollback(ctx);
     throw err;
   }

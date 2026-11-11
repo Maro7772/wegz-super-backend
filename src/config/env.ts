@@ -26,11 +26,15 @@ export const env = {
   PLESK_HOST: optional("PLESK_HOST"),
   PLESK_PORT: optional("PLESK_PORT", "8443"),
   PLESK_API_KEY: optional("PLESK_API_KEY"),
-  PLESK_PARENT_DOMAIN: optional("PLESK_PARENT_DOMAIN"),
+  PLESK_PARENT_DOMAIN: optional("PLESK_PARENT_DOMAIN", "wegz.org"),
   PLESK_VHOSTS_DIR: optional("PLESK_VHOSTS_DIR"),
   MASTER_FRONTEND_DIR: optional("MASTER_FRONTEND_DIR"),
   MASTER_BACKEND_DIR: optional("MASTER_BACKEND_DIR"),
   PLESK_SYSTEM_USER: optional("PLESK_SYSTEM_USER"),
+
+  // ---- وضع الـ Provisioning: "wildcard" (الافتراضي) أو "plesk" (القديم) ----
+  PROVISIONING_MODE: optional("PROVISIONING_MODE", "wildcard"),
+  WILDCARD_DOMAIN: optional("WILDCARD_DOMAIN", "wegz.org"),
 
   // ---- Plesk MongoDB (tenant DBs تُنشأ هنا — مش على Atlas) ----
   PLESK_MONGO_URI: optional("PLESK_MONGO_URI", "mongodb://127.0.0.1:27017"),

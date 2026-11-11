@@ -97,9 +97,10 @@ const schema = new Schema<IClient>(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
-    subdomain_url: String,
-    backend_url: String,
+    subdomain_url: { type: String, index: true },
+    backend_url: { type: String, index: true },
     db_name: String,
     status: {
       type: String,

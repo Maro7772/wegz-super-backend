@@ -22,7 +22,10 @@ import {
   sanitizeSubdomainName,
   validateSubdomainName,
 } from "../services/plesk.service";
-import { spawnProvisioningTask } from "../services/provisioner.service"; // ← المرحلة الجاية
+import {
+  spawnProvisioningTask,
+  provisionClient,
+} from "../services/provisioner.service";
 
 /**
  * يتحقق من مصفوفة الـ sections ويرجّع IDs صالحة بدون تكرار.
@@ -132,38 +135,48 @@ export const createClient = asyncHandler(
 
     let provisioningStarted = true;
 
-    // Provision in a detached scheduled task. Plesk restarts the web server while
-    // creating subdomains / enabling Node.js / issuing SSL, which would kill an
-    // in-process provisioning job (that is why it used to get stuck).
-    await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
-      provisioningStarted = false;
-      console.error(`❌ Could not start provisioning for ${client._id}:`, err);
-      // من غير كده العميل يفضل pending للأبد والواجهة تقول "هيبدأ قريبًا"
-      await ClientModel.findByIdAndUpdate(client._id, {
-        provisioning_status: "failed",
-        provisioning_error: `Could not start provisioning: ${err?.message || err}`,
-      }).catch(() => {});
-    });
+    // في وضع Wildcard: يتم إنشاء قاعدة البيانات وتفعيل العميل فوريًا في نفس اللحظة
+    // في وضع Plesk: نستخدم scheduled task لأن Plesk يعيد تشغيل السيرفر
+    if (env.PROVISIONING_MODE === "wildcard") {
+      await provisionClient(client._id.toString()).catch(async (err) => {
+        provisioningStarted = false;
+        console.error(`❌ Could not provision client ${client._id}:`, err);
+      });
+    } else {
+      await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
+        provisioningStarted = false;
+        console.error(`❌ Could not start provisioning for ${client._id}:`, err);
+        await ClientModel.findByIdAndUpdate(client._id, {
+          provisioning_status: "failed",
+          provisioning_error: `Could not start provisioning: ${err?.message || err}`,
+        }).catch(() => {});
+      });
+    }
+
+    const updatedClient = await ClientModel.findById(client._id);
 
     SuccessResponse(
       res,
       {
         message: provisioningStarted
-          ? "Client created. Provisioning will start shortly."
+          ? (env.PROVISIONING_MODE === "wildcard"
+              ? "Client created and provisioned successfully (Wildcard active)."
+              : "Client created. Provisioning will start shortly.")
           : "Client created, but provisioning could not be started.",
         data: {
           client: {
             id: client._id,
-            status: provisioningStarted ? client.provisioning_status : "failed",
+            subdomain: client.subdomain,
+            subdomain_url: updatedClient?.subdomain_url,
+            backend_url: updatedClient?.backend_url,
+            status: updatedClient?.status || client.status,
+            provisioning_status: updatedClient?.provisioning_status || client.provisioning_status,
           },
           provisioning_started: provisioningStarted,
-          // 🔑 في dev mode نرجّع الـ API key مباشرة (فقط للاختبار)
-          ...(env.NODE_ENV === "development" && {
-            devHint: "API key سيظهر في terminal بعد ثانية",
-          }),
+          mode: env.PROVISIONING_MODE,
         },
       },
-      202,
+      provisioningStarted ? 201 : 202,
     );
   },
 );
@@ -820,18 +833,25 @@ export const retryProvisioning = asyncHandler(
 
     let startError: string | null = null;
 
-    // تشغيل الـ provisioning في الخلفية (خارج Passenger)
-    await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
-      startError = `Could not start provisioning: ${err?.message || err}`;
-      console.error(
-        `❌ Could not start retry provisioning for ${client._id}:`,
-        err,
-      );
-      await ClientModel.findByIdAndUpdate(client._id, {
-        provisioning_status: "failed",
-        provisioning_error: startError,
-      }).catch(() => {});
-    });
+    if (env.PROVISIONING_MODE === "wildcard") {
+      await provisionClient(client._id.toString()).catch(async (err) => {
+        startError = `Could not retry wildcard provisioning: ${err?.message || err}`;
+        console.error(`❌ Retry failed for ${client._id}:`, err);
+      });
+    } else {
+      // تشغيل الـ provisioning في الخلفية (خارج Passenger)
+      await spawnProvisioningTask(client._id.toString()).catch(async (err) => {
+        startError = `Could not start provisioning: ${err?.message || err}`;
+        console.error(
+          `❌ Could not start retry provisioning for ${client._id}:`,
+          err,
+        );
+        await ClientModel.findByIdAndUpdate(client._id, {
+          provisioning_status: "failed",
+          provisioning_error: startError,
+        }).catch(() => {});
+      });
+    }
 
     await logAudit({
       adminId: req.admin!.id,
