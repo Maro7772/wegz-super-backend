@@ -64,6 +64,13 @@ export interface IClient extends Document {
   start_date?: Date;
   end_date?: Date;
 
+  // ---- النطاق المخصص (Custom Domain) ----
+  custom_domain?: string;
+  custom_domain_status?: "pending_dns" | "active" | "failed" | "disabled";
+  custom_domain_ssl?: boolean;
+  custom_domain_created_at?: Date;
+  custom_domain_verified_at?: Date;
+
   notes?: IClientNote[];
 
   provisioning_status: ProvisioningStatus;
@@ -138,6 +145,25 @@ const schema = new Schema<IClient>(
     last_payment_date: { type: Date },
     start_date: { type: Date, default: Date.now },
     end_date: { type: Date, index: true },
+
+    // ---- النطاق المخصص (Custom Domain) ----
+    custom_domain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      sparse: true,
+      unique: true,
+      index: true,
+    },
+    custom_domain_status: {
+      type: String,
+      enum: ["pending_dns", "active", "failed", "disabled"],
+      default: "pending_dns",
+      index: true,
+    },
+    custom_domain_ssl: { type: Boolean, default: false },
+    custom_domain_created_at: { type: Date },
+    custom_domain_verified_at: { type: Date },
 
     notes: { type: [noteSchema], default: [] },
     provisioning_status: {

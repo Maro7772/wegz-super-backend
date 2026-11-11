@@ -336,6 +336,7 @@ export const updateClient = asyncHandler(
       "payment_amount",
       "last_payment_date",
       "status",
+      "custom_domain",
     ];
 
     const updates: Record<string, any> = {};

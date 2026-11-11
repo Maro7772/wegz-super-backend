@@ -13,6 +13,7 @@ import auditRoutes from "./audit.routes";
 import dashboardRoutes from "./dashboard.routes";
 import diagnosticsRoutes from "./diagnostics.routes";
 import tenantMigrationRoutes from "./tenantMigration.routes";
+import customDomainRoutes from "./customDomain.routes";
 
 const router = Router();
 
@@ -54,6 +55,9 @@ router.use("/admin/diagnostics", diagnosticsRoutes);
 
 // Migrations across all tenant schemas
 router.use("/admin/migrations", tenantMigrationRoutes);
+
+// Custom Domains management
+router.use("/admin/custom-domains", customDomainRoutes);
 
 // Tenant (called by client backend)
 router.use("/tenant", tenantRoutes);

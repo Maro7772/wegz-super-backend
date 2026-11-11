@@ -20,6 +20,11 @@ import {
   renewSubscription,
 } from "../controllers/client.controller";
 import { provisionNow } from "../controllers/provision.controller";
+import {
+  assignCustomDomainHandler,
+  removeCustomDomainHandler,
+  verifyCustomDomainDnsHandler,
+} from "../controllers/customDomain.controller";
 import { authenticate } from "../middlewares/auth.middleware";
 import { requirePermission } from "../middlewares/permission.middleware";
 
@@ -84,6 +89,23 @@ router.post(
 );
 router.post("/:id/suspend", requirePermission("clients:edit"), suspendClient);
 router.post("/:id/activate", requirePermission("clients:edit"), activateClient);
+
+// ---- Custom Domain ----
+router.post(
+  "/:id/custom-domain",
+  requirePermission("clients:edit"),
+  assignCustomDomainHandler,
+);
+router.delete(
+  "/:id/custom-domain",
+  requirePermission("clients:edit"),
+  removeCustomDomainHandler,
+);
+router.post(
+  "/:id/custom-domain/verify-dns",
+  requirePermission("clients:edit"),
+  verifyCustomDomainDnsHandler,
+);
 
 // ---- Rebuild & deploy ----
 router.post(
