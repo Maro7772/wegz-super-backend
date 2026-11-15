@@ -41,6 +41,12 @@ export const RESOURCES: readonly ResourceDefinition[] = [
     actions: ["view", "add", "edit", "delete"],
   },
   {
+    key: "themes",
+    label_en: "Themes",
+    label_ar: "القوالب / الثيمات",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
     key: "sales",
     label_en: "Sales",
     label_ar: "المبيعات",

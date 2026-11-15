@@ -5,9 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts src/scripts/provision.ts src/scripts/seed-sections.ts src/scripts/migrate-categories-to-sections.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
+    "build": "tsup src/server.ts src/scripts/provision.ts src/scripts/seed-sections.ts src/scripts/seed-themes.ts src/scripts/migrate-categories-to-sections.ts --format esm --target node20 --out-dir dist --clean --sourcemap",
     "start": "node dist/server.js",
     "seed:sections": "tsx src/scripts/seed-sections.ts",
+    "seed:themes": "tsx src/scripts/seed-themes.ts",
     "migrate:sections": "tsx src/scripts/migrate-categories-to-sections.ts",
     "migrate": "tsx src/scripts/migrate-tenants.ts",
     "migrate:tenants": "tsx src/scripts/migrate-tenants.ts",

@@ -3,6 +3,7 @@ import authRoutes from "./auth.routes";
 import superAdminRoutes from "./superAdmin.routes";
 import roleRoutes from "./role.routes";
 import sectionRoutes from "./section.routes";
+import themeRoutes from "./theme.routes";
 import clientRoutes from "./client.routes";
 import saleRoutes from "./sale.routes";
 import paymentRoutes from "./payment.routes";
@@ -28,6 +29,9 @@ router.use("/admin/roles", roleRoutes);
 
 // Sections (بدل Categories/Subcategories)
 router.use("/admin/sections", sectionRoutes);
+
+// Themes (قوالب المتجر)
+router.use("/admin/themes", themeRoutes);
 
 // Clients
 router.use("/admin/clients", clientRoutes);

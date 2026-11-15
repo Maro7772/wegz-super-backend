@@ -972,7 +972,7 @@ export const renewSubscription = asyncHandler(
       amount,
       currency: env.CURRENCY || "EGP",
       date: now,
-      status: "approved",
+      status: "approve",
       method: req.body?.method || "cash",
       payment_cycle: requestedCycle,
       reference:

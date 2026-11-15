@@ -7,3 +7,4 @@ export * from "./Sale";
 export * from "./Payment";
 export * from "./TenantApiKey";
 export * from "./AuditLog";
+export * from "./Theme";
