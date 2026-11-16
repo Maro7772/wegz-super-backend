@@ -453,6 +453,7 @@
 * **Headers:**
   * `Authorization: Bearer <token>`
   * `Content-Type: multipart/form-data`
+* **ملاحظة هامة:** عند إنشاء الطلب من قبل السوبر أدمن، تصبح حالته **`approve` مباشرة وتلقائياً**، ويتم تطبيق منطق الاعتماد فوراً وتحديث اشتراك العميل (`start_date = now()`, `end_date = now() + package.months`, `status = active`).
 * **Form-Data Body:**
   | الحقل | النوع | إلزامي؟ | الوصف |
   |---|---|---|---|
@@ -462,9 +463,35 @@
   | `price` | Number | لا | يتم احتسابه تلقائياً من الباقة إن لم يُرسل |
   | `discount` | Number | لا | يتم احتسابه تلقائياً من الباقة إن لم يُرسل |
   | `final_price` | Number | لا | السعر النهائي بعد الخصم |
-  | `status` | Text | لا | `pending` (افتراضي) أو `approve` أو `reject` |
-  | `reject_reason` | Text | اختياري | إلزامي فقط لو كانت الحالة `reject` |
+  | `status` | Text | لا | الافتراضي: `approve` تلقائياً |
+  | `reject_reason` | Text | اختياري | إلزامي فقط لو أُرسلت الحالة كـ `reject` صراحة |
   | `receipt` | File | لا | ملف الإيصال (صورة أو PDF) |
+
+* **Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "message": "Order created and approved successfully",
+    "data": {
+      "order": {
+        "_id": "67389d0123456789abcdef04",
+        "package_id": "...",
+        "client_id": "...",
+        "status": "approve",
+        "final_price": 2500,
+        "receipt": "http://localhost:3000/uploads/..."
+      },
+      "client": {
+        "id": "67389c0123456789abcdef03",
+        "company_name": "متجر البركة",
+        "subdomain": "baraka",
+        "status": "active",
+        "start_date": "2026-11-16T13:15:00.000Z",
+        "end_date": "2027-11-16T13:15:00.000Z"
+      }
+    }
+  }
+  ```
 
 ---
 

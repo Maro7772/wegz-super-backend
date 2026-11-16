@@ -332,7 +332,9 @@ export const createOrder = asyncHandler(
       throw new BadRequest(`status must be one of: ${ORDER_STATUSES.join(", ")}`);
     }
 
-    if (status === "reject" && (!reject_reason || !String(reject_reason).trim())) {
+    const orderStatus = status ?? "approve";
+
+    if (orderStatus === "reject" && (!reject_reason || !String(reject_reason).trim())) {
       if (req.file) deleteUploadedFile(req.file.filename);
       throw new BadRequest("reject_reason is required when status is reject");
     }
@@ -354,12 +356,12 @@ export const createOrder = asyncHandler(
       price: calcPrice,
       discount: calcDiscount,
       final_price: calcFinalPrice,
-      status: status ?? "pending",
-      reject_reason: status === "reject" ? String(reject_reason).trim() : null,
+      status: orderStatus,
+      reject_reason: orderStatus === "reject" ? String(reject_reason).trim() : null,
       receipt,
     });
 
-    // لو أنشئت بحالة approve فوراً، نقوم بتحديث تواريخ اشتراك العميل
+    // يتم الاعتماد فوراً وتحديث اشتراك العميل تلقائياً
     if (order.status === "approve") {
       const now = new Date();
       client.start_date = now;
@@ -384,8 +386,21 @@ export const createOrder = asyncHandler(
     SuccessResponse(
       res,
       {
-        message: "Order created successfully",
-        data: { order: formatOrderResponse(req, order) },
+        message:
+          order.status === "approve"
+            ? "Order created and approved successfully"
+            : "Order created successfully",
+        data: {
+          order: formatOrderResponse(req, order),
+          client: {
+            id: client._id,
+            company_name: client.company_name,
+            subdomain: client.subdomain,
+            status: client.status,
+            start_date: client.start_date,
+            end_date: client.end_date,
+          },
+        },
       },
       201,
     );

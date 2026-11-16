@@ -4,8 +4,12 @@ import fs from "fs";
 import type { Request } from "express";
 
 const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err: any) {
+  console.warn("Notice: uploads directory check:", err.message);
 }
 
 const storage = multer.diskStorage({

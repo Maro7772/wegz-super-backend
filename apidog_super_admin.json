@@ -1,0 +1,1024 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wegz Super Admin - Packages, Payment Methods & Orders APIs",
+    "version": "1.0.0",
+    "description": "توثيق الـ APIs الجديدة للـ Super Admin الخاصة بالباقات، طرق الدفع، وطلبات الاشتراك (Orders). جاهز للاستيراد المباشر في Apidog / Postman / Swagger."
+  },
+  "servers": [
+    {
+      "url": "https://superback.wegz.org",
+      "description": "Production Server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Packages",
+      "description": "إدارة باقات الاشتراك (CRUD)"
+    },
+    {
+      "name": "Payment Methods",
+      "description": "إدارة طرق الدفع ورفع الأيقونات (CRUD)"
+    },
+    {
+      "name": "Orders",
+      "description": "إدارة طلبات الاشتراك والاعتماد والرفض والقوائم المنسدلة"
+    }
+  ],
+  "paths": {
+    "/api/admin/packages": {
+      "get": {
+        "tags": ["Packages"],
+        "summary": "عرض قائمة الباقات",
+        "description": "استرجاع جميع الباقات مع دعم التصفح والبحث والفلترة بالحالة",
+        "operationId": "listPackages",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "فلترة بالحالة",
+            "schema": {
+              "type": "string",
+              "enum": ["active", "inactive"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "بحث بالاسم",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "رقم الصفحة (الافتراضي: 1)",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "عدد العناصر لكل صفحة (الافتراضي: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع الباقات بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Packages"],
+        "summary": "إضافة باقة جديدة",
+        "description": "إنشاء باقة اشتراك جديدة",
+        "operationId": "createPackage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "تم إنشاء الباقة بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "بيانات غير صالحة"
+          }
+        }
+      }
+    },
+    "/api/admin/packages/{id}": {
+      "get": {
+        "tags": ["Packages"],
+        "summary": "تفاصيل باقة محددة",
+        "operationId": "getPackageById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "معرف الباقة ObjectId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع الباقة بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageSingleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الباقة غير موجودة"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Packages"],
+        "summary": "تعديل بيانات الباقة",
+        "operationId": "updatePackage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "معرف الباقة ObjectId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "تم تحديث الباقة بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageSingleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Packages"],
+        "summary": "حذف باقة",
+        "operationId": "deletePackage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "معرف الباقة ObjectId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم حذف الباقة بنجاح"
+          },
+          "400": {
+            "description": "لا يمكن الحذف لوجود طلبات مرتبطة بالباقة"
+          }
+        }
+      }
+    },
+    "/api/admin/payment-methods": {
+      "get": {
+        "tags": ["Payment Methods"],
+        "summary": "عرض قائمة طرق الدفع",
+        "description": "استرجاع طرق الدفع مع رابط الأيقونة المباشر والـ Pagination",
+        "operationId": "listPaymentMethods",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["active", "inactive"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع طرق الدفع بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodsListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Payment Methods"],
+        "summary": "إضافة طريقة دفع جديدة",
+        "description": "رفع أيقونة طريقة الدفع وحفظ بياناتها",
+        "operationId": "createPaymentMethod",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "فودافون كاش"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "يرجى التحويل على رقم 01012345678"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "inactive"],
+                    "default": "active"
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "ملف الأيقونة (صورة)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "تم إنشاء طريقة الدفع بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodSingleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/payment-methods/{id}": {
+      "get": {
+        "tags": ["Payment Methods"],
+        "summary": "تفاصيل طريقة دفع محددة",
+        "operationId": "getPaymentMethodById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع طريقة الدفع بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodSingleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Payment Methods"],
+        "summary": "تعديل طريقة دفع",
+        "description": "تعديل البيانات، وعند رفع أيقونة جديدة يتم حذف القديمة من السيرفر",
+        "operationId": "updatePaymentMethod",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "inactive"]
+                  },
+                  "icon": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "أيقونة جديدة (اختياري)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "تم تعديل طريقة الدفع بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodSingleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Payment Methods"],
+        "summary": "حذف طريقة دفع",
+        "description": "حذف طريقة الدفع مع حذف ملف الأيقونة من القرص",
+        "operationId": "deletePaymentMethod",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم حذف طريقة الدفع بنجاح"
+          }
+        }
+      }
+    },
+    "/api/admin/orders/lists": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "القوائم المنسدلة لإنشاء الطلبات (Lists)",
+        "description": "جلب طرق الدفع النشطة، الباقات النشطة، والعملاء النشطين",
+        "operationId": "getOrderLists",
+        "responses": {
+          "200": {
+            "description": "تم استرجاع القوائم بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderListsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/orders": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "عرض جميع الطلبات (View Orders)",
+        "description": "استرجاع الطلبات مع الـ Pagination والفلترة بالحالة وعرض الإيصال كرابط مباشر",
+        "operationId": "listOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "فلترة بحالة الطلب",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "approve", "reject"]
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "package_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "payment_method_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع الطلبات بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdersListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Orders"],
+        "summary": "إضافة طلب يدوياً من السوبر أدمن",
+        "description": "إنشاء طلب جديد من السوبر أدمن ويكون معتمداً تلقائياً (status=approve) مع تحديث start_date و end_date للعميل",
+        "operationId": "createOrder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["package_id", "client_id", "payment_method_id"],
+                "properties": {
+                  "package_id": {
+                    "type": "string",
+                    "description": "معرف الباقة"
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "description": "معرف العميل"
+                  },
+                  "payment_method_id": {
+                    "type": "string",
+                    "description": "معرف طريقة الدفع"
+                  },
+                  "price": {
+                    "type": "number",
+                    "description": "السعر (اختياري، يٌحسب من الباقة)"
+                  },
+                  "discount": {
+                    "type": "number",
+                    "description": "الخصم (اختياري، يٌحسب من الباقة)"
+                  },
+                  "final_price": {
+                    "type": "number",
+                    "description": "السعر النهائي بعد الخصم"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["pending", "approve", "reject"],
+                    "default": "approve",
+                    "description": "الافتراضي approve"
+                  },
+                  "reject_reason": {
+                    "type": "string",
+                    "description": "إلزامي في حال تم اختيار status=reject"
+                  },
+                  "receipt": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "ملف الإيصال (صورة أو PDF)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "تم إنشاء الطلب واعتماده بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderApproveResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/orders/{id}": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "تفاصيل طلب محدد",
+        "operationId": "getOrderById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم استرجاع الطلب بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSingleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Orders"],
+        "summary": "تعديل طلب",
+        "operationId": "updateOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "package_id": { "type": "string" },
+                  "payment_method_id": { "type": "string" },
+                  "price": { "type": "number" },
+                  "discount": { "type": "number" },
+                  "final_price": { "type": "number" },
+                  "status": { "type": "string", "enum": ["pending", "approve", "reject"] },
+                  "reject_reason": { "type": "string" },
+                  "receipt": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "تم تعديل الطلب بنجاح"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Orders"],
+        "summary": "حذف طلب",
+        "description": "حذف الطلب وحذف ملف الإيصال من السيرفر",
+        "operationId": "deleteOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم حذف الطلب بنجاح"
+          }
+        }
+      }
+    },
+    "/api/admin/orders/{id}/approve": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "اعتماد الطلب (Approve Order)",
+        "description": "تحويل حالة الطلب إلى approve وتحديث العميل: start_date=now() و end_date=now()+package.months و status=active",
+        "operationId": "approveOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "تم اعتماد الطلب وتفعيل العميل بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderApproveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "الطلب معتمد مسبقاً"
+          }
+        }
+      }
+    },
+    "/api/admin/orders/{id}/reject": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "رفض الطلب (Reject Order)",
+        "description": "رفض الطلب مع إدخال سبب الرفض الإلزامي reject_reason",
+        "operationId": "rejectOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reject_reason"],
+                "properties": {
+                  "reject_reason": {
+                    "type": "string",
+                    "example": "صورة الإيصال غير واضحة ورقم المعاملة غير ظاهر"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "تم رفض الطلب بنجاح",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "reject_reason مطلوب"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Package": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "الباقة الذهبية السنوية" },
+          "price": { "type": "number", "example": 3000 },
+          "months": { "type": "integer", "example": 12 },
+          "status": { "type": "string", "enum": ["active", "inactive"], "example": "active" },
+          "discount": { "type": "number", "example": 500 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PackageCreateInput": {
+        "type": "object",
+        "required": ["name", "price", "months"],
+        "properties": {
+          "name": { "type": "string", "example": "الباقة الذهبية السنوية" },
+          "price": { "type": "number", "minimum": 0, "example": 3000 },
+          "months": { "type": "integer", "minimum": 1, "example": 12 },
+          "status": { "type": "string", "enum": ["active", "inactive"], "default": "active" },
+          "discount": { "type": "number", "minimum": 0, "default": 0, "example": 500 }
+        }
+      },
+      "PackageUpdateInput": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "number", "minimum": 0 },
+          "months": { "type": "integer", "minimum": 1 },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "discount": { "type": "number", "minimum": 0 }
+        }
+      },
+      "PackageSingleResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Package retrieved" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "package": { "$ref": "#/components/schemas/Package" }
+            }
+          }
+        }
+      },
+      "PackagesListResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Packages retrieved" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "packages": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Package" }
+              },
+              "total": { "type": "integer", "example": 1 },
+              "page": { "type": "integer", "example": 1 },
+              "limit": { "type": "integer", "example": 10 },
+              "totalPages": { "type": "integer", "example": 1 }
+            }
+          }
+        }
+      },
+      "PaymentMethod": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "id": { "type": "string" },
+          "name": { "type": "string", "example": "فودافون كاش" },
+          "description": { "type": "string", "example": "يرجى التحويل على 01012345678" },
+          "status": { "type": "string", "enum": ["active", "inactive"], "example": "active" },
+          "icon": { "type": "string", "example": "https://superback.wegz.org/uploads/1731762000000.png" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PaymentMethodSingleResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "payment_method": { "$ref": "#/components/schemas/PaymentMethod" }
+            }
+          }
+        }
+      },
+      "PaymentMethodsListResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "payment_methods": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/PaymentMethod" }
+              },
+              "total": { "type": "integer" },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "totalPages": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "OrderListsResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Order form lists retrieved" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "payment_methods": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  }
+                }
+              },
+              "packages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  }
+                }
+              },
+              "clients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "company_name": { "type": "string" },
+                    "subdomain": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "id": { "type": "string" },
+          "package_id": { "$ref": "#/components/schemas/Package" },
+          "client_id": {
+            "type": "object",
+            "properties": {
+              "_id": { "type": "string" },
+              "company_name": { "type": "string" },
+              "email": { "type": "string" },
+              "subdomain": { "type": "string" }
+            }
+          },
+          "payment_method_id": { "$ref": "#/components/schemas/PaymentMethod" },
+          "price": { "type": "number", "example": 3000 },
+          "discount": { "type": "number", "example": 500 },
+          "final_price": { "type": "number", "example": 2500 },
+          "status": { "type": "string", "enum": ["pending", "approve", "reject"], "example": "pending" },
+          "reject_reason": { "type": "string", "nullable": true },
+          "receipt": { "type": "string", "example": "https://superback.wegz.org/uploads/receipt.pdf" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderSingleResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order": { "$ref": "#/components/schemas/Order" }
+            }
+          }
+        }
+      },
+      "OrdersListResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "orders": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Order" }
+              },
+              "total": { "type": "integer" },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "totalPages": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "OrderApproveResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Order approved successfully" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order": { "$ref": "#/components/schemas/Order" },
+              "client": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "company_name": { "type": "string" },
+                  "subdomain": { "type": "string" },
+                  "status": { "type": "string", "example": "active" },
+                  "start_date": { "type": "string", "format": "date-time" },
+                  "end_date": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
