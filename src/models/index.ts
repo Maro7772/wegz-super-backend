@@ -8,3 +8,6 @@ export * from "./Payment";
 export * from "./TenantApiKey";
 export * from "./AuditLog";
 export * from "./Theme";
+export * from "./Package";
+export * from "./PaymentMethod";
+export * from "./Order";

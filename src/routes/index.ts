@@ -15,6 +15,9 @@ import dashboardRoutes from "./dashboard.routes";
 import diagnosticsRoutes from "./diagnostics.routes";
 import tenantMigrationRoutes from "./tenantMigration.routes";
 import customDomainRoutes from "./customDomain.routes";
+import packageRoutes from "./package.routes";
+import paymentMethodRoutes from "./paymentMethod.routes";
+import orderRoutes from "./order.routes";
 
 const router = Router();
 
@@ -62,6 +65,15 @@ router.use("/admin/migrations", tenantMigrationRoutes);
 
 // Custom Domains management
 router.use("/admin/custom-domains", customDomainRoutes);
+
+// Packages
+router.use("/admin/packages", packageRoutes);
+
+// Payment Methods
+router.use("/admin/payment-methods", paymentMethodRoutes);
+
+// Orders
+router.use("/admin/orders", orderRoutes);
 
 // Tenant (called by client backend)
 router.use("/tenant", tenantRoutes);

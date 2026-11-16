@@ -94,6 +94,24 @@ export const RESOURCES: readonly ResourceDefinition[] = [
     label_ar: "لوحة التحكم",
     actions: ["view"],
   },
+  {
+    key: "packages",
+    label_en: "Packages",
+    label_ar: "الباقات",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "payment_methods",
+    label_en: "Payment Methods",
+    label_ar: "طرق الدفع",
+    actions: ["view", "add", "edit", "delete"],
+  },
+  {
+    key: "orders",
+    label_en: "Orders",
+    label_ar: "الطلبات",
+    actions: ["view", "add", "edit", "delete"],
+  },
 ] as const;
 
 // ============================================================================
