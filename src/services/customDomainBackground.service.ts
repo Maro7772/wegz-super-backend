@@ -49,9 +49,9 @@ export function startDomainBackgroundSetup(
       if (!websiteCreated) {
         try {
           console.log(
-            `📦 [Background] Creating website "${cleanDomain}" -> www-root: ${subdomain}...`,
+            `📦 [Background] Creating/updating website "${cleanDomain}" -> www-root: httpdocs/dist...`,
           );
-          await createCustomDomainWebsite(cleanDomain, subdomain);
+          await createCustomDomainWebsite(cleanDomain);
           websiteCreated = true;
           console.log(`✅ [Background] Website "${cleanDomain}" created successfully`);
 
