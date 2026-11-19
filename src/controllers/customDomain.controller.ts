@@ -9,11 +9,10 @@ import {
   getServerDnsInfo,
   normalizeDomainName,
   validateCustomDomain,
-  createSiteAlias,
-  deleteSiteAlias,
+  deleteCustomDomainWebsite,
   verifyDomainDns,
-  installAliasSsl,
 } from "../services/plesk.service";
+import { startDomainBackgroundSetup } from "../services/customDomainBackground.service";
 import { env } from "../config/env";
 
 /**
@@ -58,15 +57,21 @@ export const listCustomDomainsHandler = asyncHandler(
 
 /**
  * POST /api/admin/custom-domains
- * يربط دومين مخصص (مثل sss.net) بعميل/subdomain محدد
- * body: { client_id?, subdomain?, custom_domain: string }
+ * يربط دومين مخصص بعميل محدد — الـ subdomain يُستخرج تلقائياً من سجل العميل
+ * body: { client_id: string, custom_domain: string }
+ *
+ * كل العمليات الثقيلة (إنشاء website في Plesk → DNS → SSL) تتم في الخلفية
  */
 export const assignCustomDomainHandler = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { client_id, subdomain, custom_domain } = req.body || {};
+    const { client_id, custom_domain } = req.body || {};
 
     if (!custom_domain) {
       throw new BadRequest("custom_domain is required");
+    }
+
+    if (!client_id) {
+      throw new BadRequest("client_id is required");
     }
 
     const cleanDomain = normalizeDomainName(custom_domain);
@@ -75,18 +80,14 @@ export const assignCustomDomainHandler = asyncHandler(
       throw new BadRequest(validationError);
     }
 
-    // البحث عن العميل إما بالـ client_id أو بالـ subdomain
-    let client: any = null;
-    if (client_id) {
-      client = await ClientModel.findById(client_id);
-    } else if (subdomain) {
-      client = await ClientModel.findOne({
-        subdomain: String(subdomain).toLowerCase().trim(),
-      });
+    // البحث عن العميل بالـ ID
+    const client = await ClientModel.findById(client_id);
+    if (!client) {
+      throw new NotFound("Client not found");
     }
 
-    if (!client) {
-      throw new NotFound("Client not found (specify valid client_id or subdomain)");
+    if (!client.subdomain) {
+      throw new BadRequest("Client does not have a subdomain configured");
     }
 
     // التأكد من أن هذا الدومين غير مخصص لعميل آخر
@@ -100,29 +101,28 @@ export const assignCustomDomainHandler = asyncHandler(
       );
     }
 
-    // 1. إنشاء الـ Site Alias في Plesk
-    let pleskAliasResult: any = null;
-    try {
-      pleskAliasResult = await createSiteAlias(
-        cleanDomain,
-        env.PLESK_PARENT_DOMAIN,
+    // حذف الـ Website القديم من Plesk إذا تم تغيير الدومين
+    const previousDomain = client.custom_domain;
+    if (previousDomain && previousDomain !== cleanDomain) {
+      deleteCustomDomainWebsite(previousDomain).catch((err) =>
+        console.warn(`[CustomDomain] Delete previous website notice: ${err.message}`),
       );
-    } catch (err: any) {
-      console.warn(`[CustomDomain] Plesk alias warning: ${err.message}`);
     }
 
-    // 2. فحص انتشار الـ DNS مباشرة لمعرفة هل العميل قام بالتوجيه أم لا
-    const dnsStatus = await verifyDomainDns(cleanDomain);
-    const domainStatus = dnsStatus.pointed ? "active" : "pending_dns";
-
-    // 3. تحديث بيانات العميل
+    // تحديث بيانات العميل فوراً
     client.custom_domain = cleanDomain;
-    client.custom_domain_status = domainStatus;
+    client.custom_domain_status = "pending_setup";
+    client.custom_domain_ssl = false;
     client.custom_domain_created_at = new Date();
-    if (dnsStatus.pointed) {
-      client.custom_domain_verified_at = new Date();
-    }
+    client.custom_domain_verified_at = undefined;
     await client.save();
+
+    // تشغيل كل العمليات في الخلفية: إنشاء Website → فحص DNS → إصدار SSL
+    startDomainBackgroundSetup(
+      client._id.toString(),
+      cleanDomain,
+      client.subdomain,
+    );
 
     await logAudit({
       adminId: req.admin!.id,
@@ -132,8 +132,7 @@ export const assignCustomDomainHandler = asyncHandler(
       metadata: {
         custom_domain: cleanDomain,
         subdomain: client.subdomain,
-        status: domainStatus,
-        dns_pointed: dnsStatus.pointed,
+        status: "pending_setup",
       },
       ip: req.ip,
     });
@@ -143,18 +142,17 @@ export const assignCustomDomainHandler = asyncHandler(
     SuccessResponse(
       res,
       {
-        message: dnsStatus.pointed
-          ? "Custom domain assigned and DNS is pointing successfully!"
-          : "Custom domain assigned. Please update your domain DNS records as indicated.",
+        message:
+          "Custom domain setup started! Website creation, DNS verification, and SSL will be configured automatically in the background.",
         data: {
           client_id: client._id,
           subdomain: client.subdomain,
-          target_url: client.subdomain_url || `https://${client.subdomain}.${env.PLESK_PARENT_DOMAIN}`,
+          target_url:
+            client.subdomain_url ||
+            `https://${client.subdomain}.${env.PLESK_PARENT_DOMAIN}`,
           custom_domain: cleanDomain,
-          status: domainStatus,
-          dns_status: dnsStatus,
+          status: "pending_setup",
           dns_instructions: dnsInfo.dnsRecords,
-          plesk_result: pleskAliasResult,
         },
       },
       201,
@@ -164,7 +162,7 @@ export const assignCustomDomainHandler = asyncHandler(
 
 /**
  * DELETE /api/admin/custom-domains/:id
- * يحذف النطاق المخصص من العميل ويلغي الـ Alias من Plesk
+ * يحذف النطاق المخصص من العميل ويحذف الـ Website من Plesk
  */
 export const removeCustomDomainHandler = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -177,9 +175,9 @@ export const removeCustomDomainHandler = asyncHandler(
       throw new BadRequest("Client does not have a custom domain assigned");
     }
 
-    // حذف الـ Alias من Plesk
-    await deleteSiteAlias(previousDomain).catch((err) =>
-      console.warn(`[CustomDomain] Delete alias notice: ${err.message}`),
+    // حذف الـ Website من Plesk في الخلفية
+    deleteCustomDomainWebsite(previousDomain).catch((err) =>
+      console.warn(`[CustomDomain] Delete website notice: ${err.message}`),
     );
 
     client.custom_domain = undefined;
@@ -204,7 +202,7 @@ export const removeCustomDomainHandler = asyncHandler(
 
 /**
  * POST /api/admin/custom-domains/:id/verify-dns
- * فحص انتشار الـ DNS للنطاق وتحديث حالته لـ active إذا كان يشير للسيرفر
+ * فحص انتشار الـ DNS للنطاق — إذا لم يكتمل بعد يبدأ فاحص المراقبة في الخلفية
  */
 export const verifyCustomDomainDnsHandler = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -219,22 +217,21 @@ export const verifyCustomDomainDnsHandler = asyncHandler(
       client.custom_domain_status = "active";
       client.custom_domain_verified_at = new Date();
       await client.save();
+    }
 
-      // محاولة إصدار شهادة SSL تلقائياً بمجرد تأكيد الـ DNS
-      installAliasSsl(client.custom_domain)
-        .then(async () => {
-          client.custom_domain_ssl = true;
-          await client.save();
-        })
-        .catch((sslErr) => {
-          console.warn(`[SSL Auto-Issue notice]: ${sslErr.message}`);
-        });
+    // إذا لم يكتمل الـ DNS بعد، نعيد تشغيل المراقبة في الخلفية
+    if (!dnsCheck.pointed && client.subdomain) {
+      startDomainBackgroundSetup(
+        client._id.toString(),
+        client.custom_domain,
+        client.subdomain,
+      );
     }
 
     SuccessResponse(res, {
       message: dnsCheck.pointed
         ? "DNS verified successfully! Domain is active."
-        : "DNS is not pointing to this server yet. Please verify your A and CNAME records.",
+        : "DNS is not pointing to this server yet. Background watcher is active.",
       data: {
         domain: client.custom_domain,
         pointed: dnsCheck.pointed,
@@ -248,7 +245,7 @@ export const verifyCustomDomainDnsHandler = asyncHandler(
 
 /**
  * POST /api/admin/custom-domains/:id/ssl
- * إصدار شهادة SSL للنطاق المخصص عبر Plesk
+ * إصدار شهادة SSL — إذا الـ DNS لم يكتمل بعد، تشتغل في الخلفية تلقائياً
  */
 export const installCustomDomainSslHandler = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -257,16 +254,16 @@ export const installCustomDomainSslHandler = asyncHandler(
       throw new NotFound("Client or custom domain not found");
     }
 
-    const dnsCheck = await verifyDomainDns(client.custom_domain);
-    if (!dnsCheck.pointed) {
-      throw new BadRequest(
-        `Cannot issue SSL for "${client.custom_domain}". The domain does not point to this server (${dnsCheck.expectedIp}) yet.`,
-      );
+    if (!client.subdomain) {
+      throw new BadRequest("Client does not have a subdomain configured");
     }
 
-    const sslResult = await installAliasSsl(client.custom_domain);
-    client.custom_domain_ssl = true;
-    await client.save();
+    // نعيد تشغيل الفاحص الكامل (website + DNS + SSL) في الخلفية
+    startDomainBackgroundSetup(
+      client._id.toString(),
+      client.custom_domain,
+      client.subdomain,
+    );
 
     await logAudit({
       adminId: req.admin!.id,
@@ -278,8 +275,13 @@ export const installCustomDomainSslHandler = asyncHandler(
     });
 
     SuccessResponse(res, {
-      message: `SSL certificate installed successfully for ${client.custom_domain}`,
-      data: sslResult,
+      message:
+        "SSL setup started in the background. The certificate will be issued automatically once DNS is verified.",
+      data: {
+        domain: client.custom_domain,
+        status: client.custom_domain_status,
+        ssl_status: "pending_background",
+      },
     });
   },
 );

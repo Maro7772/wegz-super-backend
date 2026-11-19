@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import { env } from "./config/env";
 import { connectDB } from "./config/db";
 import { seedRootAdmin } from "./services/seed.service";
+import { initPeriodicCustomDomainWorker } from "./services/customDomainBackground.service";
 import apiRoutes from "./routes";
 import { errorHandler } from "./middlewares/errorHandler";
 import { NotFound } from "./utils/errors";
@@ -79,6 +80,7 @@ server.headersTimeout = 301_000;
 async function bootstrap() {
   await connectDB();
   await seedRootAdmin();
+  initPeriodicCustomDomainWorker();
 
   server.listen(env.PORT, () => {
     console.log(`🚀 Super Backend listening on http://localhost:${env.PORT}`);
